@@ -1,0 +1,136 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "phunky/laravel-messaging-playground",
+    "type": "project",
+    "description": "Laravel 13 playground for phunky/laravel-messaging: Livewire 4, Flux, groups, and reactions.",
+    "keywords": [
+        "laravel",
+        "livewire",
+        "messaging",
+        "chat",
+        "flux"
+    ],
+    "homepage": "https://github.com/Phunky/laravel-messaging-playground",
+    "support": {
+        "issues": "https://github.com/Phunky/laravel-messaging-playground/issues",
+        "source": "https://github.com/Phunky/laravel-messaging-playground"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Phunky",
+            "homepage": "https://github.com/Phunky"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "laravel/fortify": "^1.36",
+        "laravel/framework": "^13.0",
+        "laravel/reverb": "^1.10",
+        "laravel/tinker": "^3.0",
+        "league/flysystem-aws-s3-v3": "^3.25",
+        "livewire/flux": "^2.13",
+        "livewire/flux-pro": "^2.13",
+        "livewire/livewire": "^4.2",
+        "phunky/laravel-messaging": "^0.0.1",
+        "phunky/laravel-messaging-attachments": "^0.0.1",
+        "phunky/laravel-messaging-groups": "^0.0.1",
+        "phunky/laravel-messaging-reactions": "^0.0.1"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/boost": "^2.4",
+        "laravel/pail": "^1.2.5",
+        "laravel/pint": "^1.27",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "phpunit/phpunit": "^12.5.12"
+    },
+    "autoload": {
+        "psr-4": {
+            "Phunky\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate --force",
+            "npm install --ignore-scripts",
+            "npm run build"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74,#34d399\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" \"php artisan reverb:start\" --names=server,queue,logs,vite,reverb --kill-others"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+            "@php artisan migrate --graceful --ansi"
+        ],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "name": "flux-pro",
+            "type": "composer",
+            "url": "https://composer.fluxui.dev"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Phunky/laravel-messaging"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Phunky/laravel-messaging-attachments"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Phunky/laravel-messaging-groups"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Phunky/laravel-messaging-reactions"
+        }
+    ]
+}
