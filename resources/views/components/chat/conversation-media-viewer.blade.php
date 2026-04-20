@@ -3,13 +3,13 @@
     'index' => 0,
 ])
 
-@php
-    /** @var list<array{id: int, type: string, url: string, mime_type: ?string, filename: string, message_id: int}> $items */
-    $current = $items[$index] ?? null;
-    $count = count($items);
-@endphp
+{{--
+    Presentational modal fed by the message-pane SFC (`mediaViewerItems`,
+    `mediaViewerIndex`, plus `openMediaViewer` / `closeMediaViewer` actions).
+    All branching uses inline expressions or @class directives, no @php blocks.
+--}}
 
-@if ($current !== null)
+@if (($items[$index] ?? null) !== null)
     <div
         class="fixed inset-0 z-[100] flex flex-col bg-zinc-950"
         wire:click="closeMediaViewer"
@@ -41,7 +41,7 @@
             </div>
 
             <div class="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-4 pt-14 sm:px-16">
-                @if ($count > 1)
+                @if (count($items) > 1)
                     <div class="absolute start-2 top-1/2 z-10 -translate-y-1/2 sm:start-4">
                         <button
                             type="button"
@@ -69,10 +69,10 @@
                 @endif
 
                 <div class="flex max-h-full min-h-0 w-full max-w-5xl items-center justify-center">
-                    @if (($current['type'] ?? '') === 'video')
+                    @if (($items[$index]['type'] ?? '') === 'video')
                         <video
-                            wire:key="media-viewer-main-{{ $current['id'] }}"
-                            src="{{ $current['url'] }}"
+                            wire:key="media-viewer-main-{{ $items[$index]['id'] }}"
+                            src="{{ $items[$index]['url'] }}"
                             controls
                             playsinline
                             preload="metadata"
@@ -80,9 +80,9 @@
                         ></video>
                     @else
                         <img
-                            wire:key="media-viewer-main-{{ $current['id'] }}"
-                            src="{{ $current['url'] }}"
-                            alt="{{ $current['filename'] }}"
+                            wire:key="media-viewer-main-{{ $items[$index]['id'] }}"
+                            src="{{ $items[$index]['url'] }}"
+                            alt="{{ $items[$index]['filename'] }}"
                             class="max-h-[min(85vh,calc(100vh-11rem))] w-full max-w-full object-contain"
                         />
                     @endif
@@ -103,7 +103,7 @@
                             'ring-1 ring-white/20 hover:ring-white/40' => $i !== $index,
                         ])
                         @if ($i === $index) aria-current="true" @endif
-                        aria-label="{{ __('Go to item :current of :total', ['current' => $i + 1, 'total' => $count]) }}"
+                        aria-label="{{ __('Go to item :current of :total', ['current' => $i + 1, 'total' => count($items)]) }}"
                     >
                         @if (($item['type'] ?? '') === 'video')
                             <video

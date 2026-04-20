@@ -3,12 +3,14 @@
 namespace Phunky\Providers;
 
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Phunky\Events\MessagingInboxUpdated;
 use Phunky\LaravelMessaging\Events\AllMessagesRead;
 use Phunky\LaravelMessaging\Events\MessageDeleted;
 use Phunky\LaravelMessaging\Events\MessageEdited;
 use Phunky\LaravelMessaging\Events\MessageSent;
+use Phunky\View\Composers\ChatLayoutComposer;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerMessagingInboxBroadcasts();
+
+        View::composer(['layouts.app', 'layouts::app'], ChatLayoutComposer::class);
     }
 
     protected function registerMessagingInboxBroadcasts(): void

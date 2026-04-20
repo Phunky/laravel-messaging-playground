@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Phunky\Livewire\Concerns\TracksInboxWhispers;
 use Phunky\Support\ConversationListMessagePreview;
 use Phunky\LaravelMessagingReactions\Reaction;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Phunky\LaravelMessagingGroups\Group;
@@ -271,36 +272,72 @@ new class extends Component
         return $ts->format('d/m/Y');
     }
 
+    /**
+     * Precompute per-row presentation state (recording/typing/online overlays)
+     * so the blade template iterates ready-to-render contexts without any
+     * inline `@php` block or repeated array lookups.
+     *
+     * @return list<array{
+     *     row: array<string, mixed>,
+     *     cid: int,
+     *     recording_names: list<string>,
+     *     typing_names: list<string>,
+     *     is_recording: bool,
+     *     is_typing: bool,
+     *     is_other_online: bool,
+     * }>
+     */
+    #[Computed]
+    public function rowsWithContext(): array
+    {
+        $out = [];
+        foreach ($this->rows as $row) {
+            $cid = (int) $row['conversation_id'];
+            $recordingNames = $this->recordingByConversation[$cid] ?? [];
+            $typingNames = $this->typingByConversation[$cid] ?? [];
+            $isRecording = $recordingNames !== [];
+            $isTyping = ! $isRecording && $typingNames !== [];
+            $onlineIds = $this->onlineUserIdsByConversation[$cid] ?? [];
+            $isOtherOnline = ! (bool) ($row['is_group'] ?? false)
+                && array_intersect($row['other_participant_ids'] ?? [], $onlineIds) !== [];
+
+            $out[] = [
+                'row' => $row,
+                'cid' => $cid,
+                'recording_names' => $recordingNames,
+                'typing_names' => $typingNames,
+                'is_recording' => $isRecording,
+                'is_typing' => $isTyping,
+                'is_other_online' => $isOtherOnline,
+            ];
+        }
+
+        return $out;
+    }
+
 };
 ?>
 
 <div class="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        @forelse ($rows as $row)
-            @php
-                $cid = $row['conversation_id'];
-                $recordingNames = $recordingByConversation[$cid] ?? [];
-                $isRecording = $recordingNames !== [];
-                $typingNames = $typingByConversation[$cid] ?? [];
-                $isTyping = ! $isRecording && $typingNames !== [];
-                $onlineIds = $onlineUserIdsByConversation[$cid] ?? [];
-                $isOtherOnline = ! $row['is_group']
-                    && array_intersect($row['other_participant_ids'], $onlineIds) !== [];
-            @endphp
+        @forelse ($this->rowsWithContext as $ctx)
             <button
                 type="button"
-                wire:key="conv-{{ $cid }}"
-                wire:click="$parent.selectConversation({{ $cid }})"
-                class="flex w-full items-start gap-3 border-b border-zinc-100 px-3 py-3 text-left transition hover:bg-zinc-100/80 dark:border-zinc-800 dark:hover:bg-zinc-800/50 {{ $selectedConversationId === $cid ? 'bg-zinc-100 dark:bg-zinc-800' : '' }}"
+                wire:key="conv-{{ $ctx['cid'] }}"
+                wire:click="$parent.selectConversation({{ $ctx['cid'] }})"
+                @class([
+                    'flex w-full items-start gap-3 border-b border-zinc-100 px-3 py-3 text-left transition hover:bg-zinc-100/80 dark:border-zinc-800 dark:hover:bg-zinc-800/50',
+                    'bg-zinc-100 dark:bg-zinc-800' => $selectedConversationId === $ctx['cid'],
+                ])
             >
                 <div class="relative shrink-0">
                     <flux:avatar
-                        :name="$row['title']"
+                        :name="$ctx['row']['title']"
                         color="auto"
-                        color:seed="{{ $cid }}"
+                        color:seed="{{ $ctx['cid'] }}"
                         size="sm"
                     />
-                    @if ($isOtherOnline)
+                    @if ($ctx['is_other_online'])
                         <span
                             class="absolute -right-0.5 -bottom-0.5 inline-block size-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900"
                             title="{{ __('Online') }}"
@@ -311,29 +348,29 @@ new class extends Component
 
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
-                        <flux:text class="truncate font-medium">{{ $row['title'] }}</flux:text>
-                        @if ($row['is_group'])
+                        <flux:text class="truncate font-medium">{{ $ctx['row']['title'] }}</flux:text>
+                        @if ($ctx['row']['is_group'])
                             <flux:badge size="sm" color="zinc">{{ __('Group') }}</flux:badge>
                         @endif
-                        @if ($row['formatted_time'] !== '')
+                        @if ($ctx['row']['formatted_time'] !== '')
                             <flux:text size="xs" class="ml-auto shrink-0 text-zinc-400">
-                                {{ $row['formatted_time'] }}
+                                {{ $ctx['row']['formatted_time'] }}
                             </flux:text>
                         @endif
                     </div>
                     <div class="mt-0.5 flex items-center gap-2">
-                        @if ($isRecording)
-                            <x-chat.whisper-indicator :users="$recordingNames" variant="recording" scope="inbox" />
-                        @elseif ($isTyping)
-                            <x-chat.whisper-indicator :users="$typingNames" variant="typing" scope="inbox" />
-                        @elseif ($row['subtitle'] !== '')
+                        @if ($ctx['is_recording'])
+                            <x-chat.whisper-indicator :users="$ctx['recording_names']" variant="recording" scope="inbox" />
+                        @elseif ($ctx['is_typing'])
+                            <x-chat.whisper-indicator :users="$ctx['typing_names']" variant="typing" scope="inbox" />
+                        @elseif ($ctx['row']['subtitle'] !== '')
                             <flux:text size="sm" class="min-w-0 truncate text-zinc-500 dark:text-zinc-400">
-                                {{ $row['subtitle'] }}
+                                {{ $ctx['row']['subtitle'] }}
                             </flux:text>
                         @endif
-                        @if ($row['unread_count'] > 0)
+                        @if ($ctx['row']['unread_count'] > 0)
                             <flux:badge size="sm" color="indigo" class="ml-auto shrink-0">
-                                {{ $row['unread_count'] }}
+                                {{ $ctx['row']['unread_count'] }}
                             </flux:badge>
                         @endif
                     </div>

@@ -4,10 +4,12 @@ use Phunky\Actions\Chat\LoadConversationMediaForViewer;
 use Phunky\Livewire\Concerns\SerializesChatMessages;
 use Phunky\Livewire\Concerns\TracksOpenConversationWhispers;
 use Phunky\Models\User;
+use Phunky\Support\Chat\PendingAttachmentView;
 use Phunky\Support\MessageAttachmentTypeRegistry;
 use Illuminate\Validation\Rule;
 use Phunky\LaravelMessagingAttachments\Attachment as MessageAttachment;
 use Phunky\LaravelMessagingAttachments\AttachmentService;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -108,6 +110,55 @@ new class extends Component
         if ($this->conversationId !== null) {
             $this->hydrateOpenConversation($this->conversationId);
         }
+    }
+
+    /**
+     * Stable id for the hidden file input, so the attachment-kind dropdown can
+     * trigger it from Alpine via `document.getElementById`.
+     */
+    #[Computed]
+    public function pendingFileInputId(): string
+    {
+        return 'chat-pending-file-'.$this->getId();
+    }
+
+    /**
+     * How many files the current attachment kind allows (drives `multiple`
+     * attribute + validation rules).
+     */
+    #[Computed]
+    public function attachmentMaxFiles(): int
+    {
+        return (int) (MessageAttachmentTypeRegistry::definitions()[$this->attachmentKind]['max_files'] ?? 1);
+    }
+
+    /**
+     * True when the composer should show the Send action (as opposed to the
+     * hold-to-record voice note affordance).
+     */
+    #[Computed]
+    public function hasComposerSendContent(): bool
+    {
+        return trim($this->newMessage) !== '' || $this->pendingFiles !== [];
+    }
+
+    /**
+     * Pending-file preview rows wrapped as a DTO so the composer template can
+     * render mime/preview branches without inline `method_exists` calls.
+     *
+     * @return list<PendingAttachmentView>
+     */
+    #[Computed]
+    public function pendingAttachments(): array
+    {
+        $out = [];
+        foreach ($this->pendingFiles as $file) {
+            if ($file instanceof TemporaryUploadedFile) {
+                $out[] = new PendingAttachmentView($file);
+            }
+        }
+
+        return $out;
     }
 
     protected function resetAttachmentPickerState(): void
@@ -873,39 +924,33 @@ JS);
         <div class="shrink-0 w-full pb-4 px-4">
             <div class="mx-auto w-full max-w-4xl">
                 <form wire:submit="sendMessage">
-                    @php $pendingFileInputId = 'chat-pending-file-'.$this->getId(); @endphp
                     @if ($pendingFiles !== [] && ! $suppressPendingAttachmentPreview)
                         <div class="mb-2 flex flex-wrap gap-2">
-                            @foreach ($pendingFiles as $index => $file)
-                                @php
-                                    $pendingMime = (string) $file->getMimeType();
-                                    $isPendingAudio = str_starts_with($pendingMime, 'audio/');
-                                    $canPreviewTmp = method_exists($file, 'isPreviewable') && $file->isPreviewable();
-                                @endphp
+                            @foreach ($this->pendingAttachments as $index => $attachment)
                                 <div
                                     @class([
                                         'relative overflow-hidden rounded-md border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800',
-                                        'shrink-0' => ! $isPendingAudio,
-                                        'h-16 w-16' => ! $isPendingAudio,
-                                        'min-h-16 w-full max-w-xs px-2 py-1.5' => $isPendingAudio,
+                                        'shrink-0' => ! $attachment->isAudio(),
+                                        'h-16 w-16' => ! $attachment->isAudio(),
+                                        'min-h-16 w-full max-w-xs px-2 py-1.5' => $attachment->isAudio(),
                                     ])
                                     wire:key="pending-file-{{ $index }}"
                                 >
-                                    @if (str_starts_with($pendingMime, 'image/') && $canPreviewTmp)
+                                    @if ($attachment->canPreviewImage())
                                         <img
-                                            src="{{ $file->temporaryUrl() }}"
+                                            src="{{ $attachment->url() }}"
                                             alt=""
                                             class="h-full w-full object-cover"
                                         />
-                                    @elseif (str_starts_with($pendingMime, 'video/') && $canPreviewTmp)
+                                    @elseif ($attachment->canPreviewVideo())
                                         <video
-                                            src="{{ $file->temporaryUrl() }}"
+                                            src="{{ $attachment->url() }}"
                                             muted
                                             playsinline
                                             preload="metadata"
                                             class="h-full w-full object-cover"
                                         ></video>
-                                    @elseif (str_starts_with($pendingMime, 'image/') || str_starts_with($pendingMime, 'video/'))
+                                    @elseif ($attachment->isImageOrVideoWithoutPreview())
                                         <div class="flex h-full w-full flex-col items-center justify-center gap-0.5 p-1 text-center">
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
@@ -923,18 +968,18 @@ JS);
                                                 />
                                             </svg>
                                             <span class="line-clamp-2 w-full break-all text-[0.65rem] leading-tight text-zinc-600 dark:text-zinc-300">
-                                                {{ $file->getClientOriginalName() }}
+                                                {{ $attachment->filename() }}
                                             </span>
                                         </div>
-                                    @elseif ($isPendingAudio && $canPreviewTmp)
+                                    @elseif ($attachment->canPreviewAudio())
                                         <audio
-                                            src="{{ $file->temporaryUrl() }}"
+                                            src="{{ $attachment->url() }}"
                                             controls
                                             preload="metadata"
                                             controlslist="nodownload noplaybackrate"
                                             class="chat-native-audio h-10 min-w-[220px] w-full"
                                         ></audio>
-                                    @elseif ($isPendingAudio)
+                                    @elseif ($attachment->isAudio())
                                         <div class="flex h-full w-full flex-col items-center justify-center gap-0.5 p-1 text-center">
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
@@ -952,7 +997,7 @@ JS);
                                                 />
                                             </svg>
                                             <span class="line-clamp-2 w-full break-all text-[0.65rem] leading-tight text-zinc-600 dark:text-zinc-300">
-                                                {{ $file->getClientOriginalName() }}
+                                                {{ $attachment->filename() }}
                                             </span>
                                         </div>
                                     @else
@@ -973,7 +1018,7 @@ JS);
                                                 />
                                             </svg>
                                             <span class="line-clamp-2 w-full break-all text-[0.65rem] leading-tight text-zinc-600 dark:text-zinc-300">
-                                                {{ $file->getClientOriginalName() }}
+                                                {{ $attachment->filename() }}
                                             </span>
                                         </div>
                                     @endif
@@ -997,21 +1042,15 @@ JS);
                     @endif
 
                     <div class="w-full">
-                        @php
-                            $attachmentMaxFiles = (int) (MessageAttachmentTypeRegistry::definitions()[$attachmentKind]['max_files'] ?? 1);
-                        @endphp
                         <input
-                            id="{{ $pendingFileInputId }}"
+                            id="{{ $this->pendingFileInputId }}"
                             type="file"
                             wire:key="pending-files-input-{{ $pendingFilesInputKey }}"
                             class="hidden"
                             wire:model="pendingFiles"
-                            @if ($attachmentMaxFiles > 1) multiple @endif
+                            @if ($this->attachmentMaxFiles > 1) multiple @endif
                             accept="{{ $attachmentAccept }}"
                         />
-                        @php
-                            $hasComposerSendContent = trim($newMessage) !== '' || $pendingFiles !== [];
-                        @endphp
                         <div
                             class="w-full"
                             x-data="chatVoiceNote({
@@ -1050,7 +1089,7 @@ JS);
                                                         type="button"
                                                         class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                                                         wire:key="attach-kind-{{ $kind }}"
-                                                        @click.prevent="(async () => { await $wire.prepareUpload(@js($kind)); document.getElementById(@js($pendingFileInputId)).click() })()"
+                                                        @click.prevent="(async () => { await $wire.prepareUpload(@js($kind)); document.getElementById(@js($this->pendingFileInputId)).click() })()"
                                                     >
                                                         {{ __($def['label']) }}
                                                     </button>
@@ -1060,7 +1099,7 @@ JS);
                                     </x-slot>
                                     <x-slot name="iconTrailing">
                                         <div class="-mr-1 flex items-center gap-0.5">
-                                            @if (! $hasComposerSendContent)
+                                            @if (! $this->hasComposerSendContent)
                                                 <flux:button
                                                     type="button"
                                                     size="sm"
@@ -1072,7 +1111,7 @@ JS);
                                                     @click.prevent="toggle()"
                                                 />
                                             @endif
-                                            @if ($hasComposerSendContent)
+                                            @if ($this->hasComposerSendContent)
                                                 <flux:button
                                                     type="submit"
                                                     size="sm"

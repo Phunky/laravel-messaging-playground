@@ -2,7 +2,9 @@
 
 use Phunky\Livewire\Concerns\SerializesChatMessages;
 use Phunky\Models\User;
+use Phunky\Support\Chat\ChatTimestamp;
 use Illuminate\Pagination\Cursor;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Phunky\LaravelMessaging\Models\Conversation;
@@ -372,6 +374,33 @@ new class extends Component
 
         $this->upsertViewportMessage($this->serializeMessage($message), scrollOnInsert: true);
     }
+
+    /**
+     * Stamps each visible row with `day_bucket` (timezone-aware date string)
+     * and `is_first_of_day` so the blade template can render a date separator
+     * without tracking `$prevDate` inline.
+     *
+     * @return list<array<string, mixed>>
+     */
+    #[Computed]
+    public function renderedMessages(): array
+    {
+        $source = $this->isIslandPartialRender ? $this->islandPartialRows : $this->messagesViewport;
+
+        $out = [];
+        $prevBucket = null;
+        foreach ($source as $row) {
+            $bucket = ChatTimestamp::dayBucket($row['sent_at'] ?? null);
+            $row['day_bucket'] = $bucket;
+            $row['is_first_of_day'] = $bucket !== null && $bucket !== $prevBucket;
+            if ($bucket !== null) {
+                $prevBucket = $bucket;
+            }
+            $out[] = $row;
+        }
+
+        return $out;
+    }
 };
 ?>
 
@@ -392,24 +421,21 @@ new class extends Component
                 </div>
             @endif
 
-            @php $prevDate = null; @endphp
-
             <div class="flex flex-col gap-3">
-                @foreach (($isIslandPartialRender ? $islandPartialRows : $messagesViewport) as $msg)
-                    @php
-                        $currentDate = ! empty($msg['sent_at']) ? \Illuminate\Support\Carbon::parse($msg['sent_at'])->timezone(config('app.timezone'))->toDateString() : null;
-                    @endphp
-
-                    @if ($currentDate !== null && $currentDate !== $prevDate)
+                @foreach ($this->renderedMessages as $msg)
+                    @if ($msg['is_first_of_day'])
                         <livewire:chat.date-separator
                             :sent-at="$msg['sent_at']"
-                            wire:key="date-separator-{{ $conversationId }}-{{ $currentDate }}"
+                            wire:key="date-separator-{{ $conversationId }}-{{ $msg['day_bucket'] }}"
                         />
                     @endif
 
-                    @php $prevDate = $currentDate; @endphp
-
-                    <x-chat.message-card :msg="$msg" :conversation-id="$conversationId" :is-group="$isGroup" />
+                    <livewire:chat.message-card
+                        :message="$msg"
+                        :conversation-id="$conversationId"
+                        :is-group="$isGroup"
+                        :key="'msg-'.$msg['id']"
+                    />
                 @endforeach
 
             </div>

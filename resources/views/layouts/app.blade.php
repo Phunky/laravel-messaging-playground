@@ -4,18 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @auth
-        @php
-            $conversationModel = config('messaging.models.conversation');
-            $chatConversationIds = auth()->user()
-                ->conversations()
-                ->pluck((new $conversationModel)->getTable().'.id')
-                ->implode(',');
-        @endphp
-        <meta name="chat-user-id" content="{{ auth()->id() }}">
-        <meta name="chat-user-name" content="{{ auth()->user()->name ?? '' }}">
+    @if ($chatUserId !== null)
+        <meta name="chat-user-id" content="{{ $chatUserId }}">
+        <meta name="chat-user-name" content="{{ $chatUserName }}">
         <meta name="chat-conversation-ids" content="{{ $chatConversationIds }}">
-    @endauth
+    @endif
     <title>{{ $title ?? config('app.name', 'Laravel') }}</title>
 
     <link rel="preconnect" href="https://fonts.bunny.net">

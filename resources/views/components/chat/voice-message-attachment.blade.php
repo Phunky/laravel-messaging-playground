@@ -3,18 +3,14 @@
     'variant' => 'mine',
 ])
 
-@php
-    $isMine = $variant === 'mine';
-@endphp
-
 <div
     wire:ignore
     @class([
         'flex w-full min-w-0 items-center gap-2 rounded-lg px-0.5 py-0.5',
-        'text-emerald-50' => $isMine,
-        'text-zinc-700 dark:text-zinc-200' => ! $isMine,
+        'text-emerald-50' => $variant === 'mine',
+        'text-zinc-700 dark:text-zinc-200' => $variant !== 'mine',
     ])
-    x-data="chatVoiceAttachment({ audioUrl: @js($url), isMine: @js($isMine) })"
+    x-data="chatVoiceAttachment({ audioUrl: @js($url), isMine: @js($variant === 'mine') })"
     role="group"
     aria-label="{{ __('Voice message') }}"
 >

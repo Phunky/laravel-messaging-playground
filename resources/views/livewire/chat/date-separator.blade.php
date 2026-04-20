@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Carbon;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Phunky\Support\Chat\ChatTimestamp;
 
 new class extends Component
 {
@@ -11,30 +11,7 @@ new class extends Component
     #[Computed]
     public function label(): string
     {
-        if ($this->sentAt === null || $this->sentAt === '') {
-            return '';
-        }
-
-        $timezone = (string) config('app.timezone');
-        $d = Carbon::parse($this->sentAt)->timezone($timezone)->startOfDay();
-        $today = Carbon::now()->timezone($timezone)->startOfDay();
-
-        if ($d->equalTo($today)) {
-            return __('Today');
-        }
-
-        if ($d->equalTo($today->copy()->subDay())) {
-            return __('Yesterday');
-        }
-
-        $sevenDaysAgo = $today->copy()->subDays(7)->startOfDay();
-        $twoDaysAgo = $today->copy()->subDays(2)->startOfDay();
-
-        if ($d->betweenIncluded($sevenDaysAgo, $twoDaysAgo)) {
-            return $d->translatedFormat('l');
-        }
-
-        return $d->format('d/m/Y');
+        return ChatTimestamp::dateSeparator($this->sentAt);
     }
 };
 ?>
