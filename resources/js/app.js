@@ -1,4 +1,5 @@
 import './bootstrap';
+import './chat-message-long-press';
 import './chat-scroll';
 import './chat-voice-note';
 import './chat-messaging-echo';

@@ -76,4 +76,14 @@ trait SerializesChatMessages
     {
         return MessageViewModel::listFromArray($rows);
     }
+
+    protected function stabilizeChatScroll(): void
+    {
+        $this->js('queueMicrotask(() => requestAnimationFrame(() => window.stabilizeChatScrollToBottom?.()))');
+    }
+
+    protected function revealChatBottomIfNearBottom(): void
+    {
+        $this->js('queueMicrotask(() => requestAnimationFrame(() => window.scrollChatToBottomIfNearBottom?.()))');
+    }
 }

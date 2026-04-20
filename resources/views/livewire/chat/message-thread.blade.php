@@ -2,7 +2,7 @@
 
 use Phunky\Livewire\Concerns\SerializesChatMessages;
 use Phunky\Models\User;
-use Phunky\Support\Chat\ChatTimestamp;
+use Phunky\Support\Chat\MessageViewModel;
 use Illuminate\Pagination\Cursor;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -51,7 +51,7 @@ new class extends Component
         $this->conversationId = $conversationId;
         $this->isActive = $isActive;
         $this->loadThreadFlags();
-        $this->loadMessagesPage(reset: true);
+        $this->loadInitialMessagesPage();
     }
 
     public function updatedIsActive(bool $value): void
@@ -80,7 +80,7 @@ new class extends Component
             : max(array_map(fn (array $m): int => (int) $m['id'], $this->messagesViewport));
 
         if ($latestId > $localMax) {
-            $this->loadMessagesPage(reset: true);
+            $this->loadInitialMessagesPage();
         }
     }
 
@@ -148,7 +148,7 @@ new class extends Component
         $this->islandPartialRows = [];
     }
 
-    protected function loadMessagesPage(bool $reset): void
+    protected function loadInitialMessagesPage(): void
     {
         $conversation = Conversation::query()->find($this->conversationId);
         if (! $conversation instanceof Conversation) {
@@ -159,15 +159,40 @@ new class extends Component
 
         $perPage = 50;
 
-        if ($reset) {
-            $page = $query->cursorPaginate($perPage);
-            $chunk = collect($page->items())->map(fn (Message $m) => $this->serializeMessage($m))->values()->all();
-            $this->messagesViewport = array_reverse($chunk);
-            $this->messagesCursor = $page->nextCursor()?->encode();
-            $this->messagesHasMore = $page->hasMorePages();
-            $this->isIslandPartialRender = false;
-            $this->islandPartialRows = [];
+        $page = $query->cursorPaginate($perPage);
+        $chunk = collect($page->items())->map(fn (Message $m) => $this->serializeMessage($m))->values()->all();
+        $this->messagesViewport = array_reverse($chunk);
+        $this->messagesCursor = $page->nextCursor()?->encode();
+        $this->messagesHasMore = $page->hasMorePages();
+        $this->isIslandPartialRender = false;
+        $this->islandPartialRows = [];
+    }
+
+    /**
+     * Replace a serialized message in the viewport by id. Returns true if a row was updated.
+     */
+    private function replaceViewportMessage(array $serialized): bool
+    {
+        $messageId = (int) ($serialized['id'] ?? 0);
+        if ($messageId <= 0) {
+            return false;
         }
+
+        $replaced = false;
+        $this->messagesViewport = array_map(
+            function (array $row) use ($messageId, $serialized, &$replaced): array {
+                if ((int) $row['id'] === $messageId) {
+                    $replaced = true;
+
+                    return $serialized;
+                }
+
+                return $row;
+            },
+            $this->messagesViewport,
+        );
+
+        return $replaced;
     }
 
     /**
@@ -176,28 +201,12 @@ new class extends Component
      */
     private function upsertViewportMessage(array $serialized, bool $scrollOnInsert = false): bool
     {
-        $messageId = (int) ($serialized['id'] ?? 0);
-        $inserted = true;
-
-        if ($messageId > 0) {
-            $this->messagesViewport = array_map(
-                function (array $row) use ($messageId, $serialized, &$inserted): array {
-                    if ((int) $row['id'] === $messageId) {
-                        $inserted = false;
-
-                        return $serialized;
-                    }
-
-                    return $row;
-                },
-                $this->messagesViewport,
-            );
-        }
+        $inserted = ! $this->replaceViewportMessage($serialized);
 
         if ($inserted) {
             $this->messagesViewport = [...$this->messagesViewport, $serialized];
             if ($scrollOnInsert) {
-                $this->js('queueMicrotask(() => requestAnimationFrame(() => window.stabilizeChatScrollToBottom?.()))');
+                $this->stabilizeChatScroll();
             }
         }
 
@@ -224,10 +233,7 @@ new class extends Component
             return;
         }
 
-        $this->messagesViewport = array_map(
-            fn (array $row) => (int) $row['id'] === (int) $message['id'] ? $message : $row,
-            $this->messagesViewport,
-        );
+        $this->replaceViewportMessage($message);
     }
 
     #[On('chat-message-removed')]
@@ -267,7 +273,7 @@ new class extends Component
 
     private function revealWhisperCardInViewport(): void
     {
-        $this->js('queueMicrotask(() => requestAnimationFrame(() => window.scrollChatToBottomIfNearBottom?.()))');
+        $this->revealChatBottomIfNearBottom();
     }
 
     /**
@@ -338,10 +344,7 @@ new class extends Component
 
         $serialized = $this->serializeMessage($message);
 
-        $this->messagesViewport = array_map(
-            fn (array $row) => (int) $row['id'] === $messageId ? $serialized : $row,
-            $this->messagesViewport,
-        );
+        $this->replaceViewportMessage($serialized);
     }
 
     #[On('messaging-remote-message-deleted')]
@@ -376,30 +379,16 @@ new class extends Component
     }
 
     /**
-     * Stamps each visible row with `day_bucket` (timezone-aware date string)
-     * and `is_first_of_day` so the blade template can render a date separator
-     * without tracking `$prevDate` inline.
+     * Viewport rows as {@see MessageViewModel} instances with day-bucket flags applied.
      *
-     * @return list<array<string, mixed>>
+     * @return list<MessageViewModel>
      */
     #[Computed]
     public function renderedMessages(): array
     {
         $source = $this->isIslandPartialRender ? $this->islandPartialRows : $this->messagesViewport;
 
-        $out = [];
-        $prevBucket = null;
-        foreach ($source as $row) {
-            $bucket = ChatTimestamp::dayBucket($row['sent_at'] ?? null);
-            $row['day_bucket'] = $bucket;
-            $row['is_first_of_day'] = $bucket !== null && $bucket !== $prevBucket;
-            if ($bucket !== null) {
-                $prevBucket = $bucket;
-            }
-            $out[] = $row;
-        }
-
-        return $out;
+        return MessageViewModel::listFromArray($source);
     }
 };
 ?>
@@ -422,19 +411,19 @@ new class extends Component
             @endif
 
             <div class="flex flex-col gap-3">
-                @foreach ($this->renderedMessages as $msg)
-                    @if ($msg['is_first_of_day'])
+                @foreach ($this->renderedMessages as $vm)
+                    @if ($vm->isFirstOfDay)
                         <livewire:chat.date-separator
-                            :sent-at="$msg['sent_at']"
-                            wire:key="date-separator-{{ $conversationId }}-{{ $msg['day_bucket'] }}"
+                            :sent-at="$vm->sentAt"
+                            wire:key="date-separator-{{ $conversationId }}-{{ $vm->dayBucket() }}"
                         />
                     @endif
 
                     <livewire:chat.message-card
-                        :message="$msg"
+                        :message="$vm->toArray()"
                         :conversation-id="$conversationId"
                         :is-group="$isGroup"
-                        :key="'msg-'.$msg['id']"
+                        :key="'msg-'.$vm->id"
                     />
                 @endforeach
 

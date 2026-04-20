@@ -19,7 +19,7 @@ class MessageReactionsTest extends TestCase
         $message = $messaging->sendMessage($conversation, $alice, 'Hello');
 
         Livewire::actingAs($alice)
-            ->test('chat.message-reactions', [
+            ->test('chat.message-reactions-summary', [
                 'messageId' => (int) $message->id,
                 'conversationId' => (int) $conversation->id,
             ])
@@ -39,7 +39,7 @@ class MessageReactionsTest extends TestCase
         $message = $messaging->sendMessage($conversation, $alice, 'Hello');
 
         $component = Livewire::actingAs($alice)
-            ->test('chat.message-reactions', [
+            ->test('chat.message-reactions-summary', [
                 'messageId' => (int) $message->id,
                 'conversationId' => (int) $conversation->id,
             ]);
@@ -60,7 +60,7 @@ class MessageReactionsTest extends TestCase
         $message = $messaging->sendMessage($conversation, $alice, 'Hello');
 
         Livewire::actingAs($alice)
-            ->test('chat.message-reactions', [
+            ->test('chat.message-reactions-summary', [
                 'messageId' => (int) $message->id,
                 'conversationId' => (int) $conversation->id,
             ])
@@ -81,7 +81,7 @@ class MessageReactionsTest extends TestCase
         $message = $messaging->sendMessage($conversation, $alice, 'Hello');
 
         Livewire::actingAs($charlie)
-            ->test('chat.message-reactions', [
+            ->test('chat.message-reactions-summary', [
                 'messageId' => (int) $message->id,
                 'conversationId' => (int) $conversation->id,
             ])
@@ -99,7 +99,7 @@ class MessageReactionsTest extends TestCase
         $message = $messaging->sendMessage($conversation, $alice, 'Hello');
 
         Livewire::actingAs($alice)
-            ->test('chat.message-reactions', [
+            ->test('chat.message-reactions-picker', [
                 'messageId' => (int) $message->id,
                 'conversationId' => (int) $conversation->id,
             ])
@@ -107,7 +107,7 @@ class MessageReactionsTest extends TestCase
             ->assertSet('pickerOpen', false);
 
         Livewire::actingAs($alice)
-            ->test('chat.message-reactions', [
+            ->test('chat.message-reactions-picker', [
                 'messageId' => (int) $message->id,
                 'conversationId' => (int) $conversation->id,
             ])
@@ -115,7 +115,7 @@ class MessageReactionsTest extends TestCase
             ->assertSet('pickerOpen', true);
     }
 
-    public function test_remote_reaction_event_only_busts_cache_for_matching_message(): void
+    public function test_remote_reaction_event_only_busts_cache_for_matching_message_on_summary_island(): void
     {
         $alice = User::factory()->create();
         $bob = User::factory()->create();
@@ -124,7 +124,7 @@ class MessageReactionsTest extends TestCase
         $message = $messaging->sendMessage($conversation, $alice, 'Hello');
 
         $component = Livewire::actingAs($alice)
-            ->test('chat.message-reactions', [
+            ->test('chat.message-reactions-summary', [
                 'messageId' => (int) $message->id,
                 'conversationId' => (int) $conversation->id,
             ]);
@@ -139,5 +139,44 @@ class MessageReactionsTest extends TestCase
 
         $component->call('onRemoteReactionUpdated', conversationId: (int) $conversation->id, messageId: (int) $message->id);
         $this->assertSame(1, $component->get('reactionCacheBust'));
+    }
+
+    public function test_remote_reaction_event_only_busts_cache_for_matching_message_on_picker_island(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $messaging = app(MessagingService::class);
+        [$conversation] = $messaging->findOrCreateConversation($alice, $bob);
+        $message = $messaging->sendMessage($conversation, $alice, 'Hello');
+
+        $component = Livewire::actingAs($alice)
+            ->test('chat.message-reactions-picker', [
+                'messageId' => (int) $message->id,
+                'conversationId' => (int) $conversation->id,
+            ]);
+
+        $this->assertSame(0, $component->get('reactionCacheBust'));
+
+        $component->call('onRemoteReactionUpdated', conversationId: (int) $conversation->id, messageId: (int) $message->id);
+        $this->assertSame(1, $component->get('reactionCacheBust'));
+    }
+
+    public function test_picker_island_can_toggle_reactions(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $messaging = app(MessagingService::class);
+        [$conversation] = $messaging->findOrCreateConversation($alice, $bob);
+        $message = $messaging->sendMessage($conversation, $alice, 'Hello');
+
+        Livewire::actingAs($alice)
+            ->test('chat.message-reactions-picker', [
+                'messageId' => (int) $message->id,
+                'conversationId' => (int) $conversation->id,
+            ])
+            ->call('toggle', reaction: '👍')
+            ->assertSet('pickerOpen', false);
+
+        $this->assertSame('👍', Reaction::query()->where('message_id', $message->id)->value('reaction'));
     }
 }

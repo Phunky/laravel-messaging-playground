@@ -2,7 +2,7 @@
     Expects $vm (Phunky\Support\Chat\MessageViewModel) and access to the
     surrounding message-card SFC's $conversationId and $this->* helpers.
     Renders the actual bubble (card + optional dropdown + attachments + body +
-    timestamp) plus the deferred message-reactions island beneath it.
+    timestamp) plus the deferred reactions summary + picker islands beneath it.
 --}}
 
 <div
@@ -11,40 +11,14 @@
         'group relative touch-manipulation' => $conversationId !== null,
     ])
     @if ($conversationId !== null)
-        x-data="{
-            _t: null,
-            start(ev) {
-                if (! ev.touches || ev.touches.length === 0) {
-                    return;
-                }
-                this.clear();
-                const id = {{ $vm->id }};
-                this._t = setTimeout(() => {
-                    window.Livewire?.dispatch('open-message-reaction-picker', { messageId: id });
-                    this._t = null;
-                }, 480);
-            },
-            clear() {
-                if (this._t) {
-                    clearTimeout(this._t);
-                    this._t = null;
-                }
-            }
-        }"
+        x-data="messageLongPress({{ $vm->id }})"
         @touchstart.passive="start($event)"
         @touchend="clear()"
         @touchcancel="clear()"
         @touchmove="clear()"
     @endif
 >
-    <flux:card
-        size="sm"
-        @class([
-            'relative !border-0 !rounded-lg !px-3 !py-2 !shadow-none',
-            '!bg-emerald-600 !text-white dark:!bg-emerald-600 dark:!text-white' => $vm->isMe,
-            '!bg-zinc-200 !text-zinc-900 dark:!bg-zinc-700 dark:!text-zinc-50' => ! $vm->isMe,
-        ])
-    >
+    <x-chat.bubble :is-me="$vm->isMe">
         @if ($vm->isMe)
             <div class="absolute end-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100">
                 <flux:dropdown position="bottom" align="end">
@@ -92,32 +66,24 @@
                 <span class="whitespace-pre-wrap">{{ $vm->body }}</span>
 
                 @if ($vm->sentAt !== null && $vm->sentAt !== '')
-                    <span
-                        @class([
-                            'float-right ms-2 mt-1 -mb-0.5 shrink-0 whitespace-nowrap text-xs opacity-70 select-none',
-                            '!text-emerald-50/90' => $vm->isMe,
-                        ])
-                    >
-                        {{ $vm->formattedSentAt() }}@if ($vm->isEdited())<span class="opacity-90"> · {{ __('Edited') }} {{ $vm->formattedEditedAt() }}</span>@endif
-                    </span>
+                    <x-chat.message-timestamp :vm="$vm" float :is-me="$vm->isMe" />
                 @endif
             </div>
         @elseif ($vm->sentAt !== null && $vm->sentAt !== '')
             <div class="mt-1 -mb-0.5 flex justify-end">
-                <span
-                    @class([
-                        'whitespace-nowrap text-xs opacity-70 select-none',
-                        '!text-emerald-50/90' => $vm->isMe,
-                    ])
-                >
-                    {{ $vm->formattedSentAt() }}@if ($vm->isEdited())<span class="opacity-90"> · {{ __('Edited') }} {{ $vm->formattedEditedAt() }}</span>@endif
-                </span>
+                <x-chat.message-timestamp :vm="$vm" :is-me="$vm->isMe" />
             </div>
         @endif
-    </flux:card>
+    </x-chat.bubble>
 
     @if ($conversationId !== null)
-        <livewire:chat.message-reactions
+        <livewire:chat.message-reactions-summary
+            :message-id="$vm->id"
+            :conversation-id="$conversationId"
+            :message-alignment="$vm->isMe ? 'mine' : 'others'"
+            defer
+        />
+        <livewire:chat.message-reactions-picker
             :message-id="$vm->id"
             :conversation-id="$conversationId"
             :message-alignment="$vm->isMe ? 'mine' : 'others'"
