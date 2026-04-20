@@ -858,7 +858,7 @@ JS);
         <div class="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
         <div
             id="chat-scroll-area"
-            class="flex min-h-0 flex-1 basis-0 flex-col overflow-y-auto overscroll-contain pt-3 pb-6"
+            class="flex min-h-0 flex-1 basis-0 flex-col overflow-y-auto overscroll-contain py-3"
             x-data="{ ready: false }"
             x-init="$nextTick(() => { ready = true })"
         >

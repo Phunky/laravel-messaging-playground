@@ -60,7 +60,7 @@ new class extends Component
 
 <div
     @class([
-        'flex',
+        'flex last:mb-6',
         'justify-end' => $this->viewModel->isMe,
         'justify-start' => ! $this->viewModel->isMe,
     ])
