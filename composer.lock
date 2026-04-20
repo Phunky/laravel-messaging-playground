@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "350e87bd8db0454690501f122269026b",
+    "content-hash": "d84e94f5d1ce30ff242410be59f2e106",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -3688,16 +3688,16 @@
         },
         {
             "name": "phunky/laravel-messaging",
-            "version": "0.0.1",
+            "version": "0.0.3",
             "source": {
                 "type": "git",
-                "url": "git@github.com:Phunky/laravel-messaging.git",
-                "reference": "29c66a28aced6898474b38610996463f268fe9d5"
+                "url": "https://github.com/Phunky/laravel-messaging.git",
+                "reference": "2f257d6f467c01886f4cc3193fed6dca575f997f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Phunky/laravel-messaging/zipball/29c66a28aced6898474b38610996463f268fe9d5",
-                "reference": "29c66a28aced6898474b38610996463f268fe9d5",
+                "url": "https://api.github.com/repos/Phunky/laravel-messaging/zipball/2f257d6f467c01886f4cc3193fed6dca575f997f",
+                "reference": "2f257d6f467c01886f4cc3193fed6dca575f997f",
                 "shasum": ""
             },
             "require": {
@@ -3722,7 +3722,9 @@
                 "phpstan/phpstan-phpunit": "^2.0"
             },
             "suggest": {
-                "phunky/laravel-messaging-groups": "Group conversations extension for Laravel Messaging"
+                "phunky/laravel-messaging-attachments": "Message attachments (files, links, etc.) for Laravel Messaging",
+                "phunky/laravel-messaging-groups": "Group conversations extension for Laravel Messaging",
+                "phunky/laravel-messaging-reactions": "Per-message reactions (emoji or icon names) for Laravel Messaging"
             },
             "type": "library",
             "extra": {
@@ -3795,7 +3797,7 @@
                 "issues": "https://github.com/phunky/laravel-messaging/issues",
                 "source": "https://github.com/phunky/laravel-messaging"
             },
-            "time": "2026-04-13T16:41:22+00:00"
+            "time": "2026-04-20T17:04:46+00:00"
         },
         {
             "name": "phunky/laravel-messaging-attachments",
@@ -10563,7 +10565,14 @@
             "time": "2025-12-08T11:19:18+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "phunky/laravel-messaging",
+            "version": "0.0.3.0",
+            "alias": "0.0.1",
+            "alias_normalized": "0.0.1.0"
+        }
+    ],
     "minimum-stability": "stable",
     "stability-flags": {},
     "prefer-stable": true,

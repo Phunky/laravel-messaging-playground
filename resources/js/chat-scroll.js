@@ -61,3 +61,25 @@ export function stabilizeChatScrollToBottom() {
 }
 
 window.stabilizeChatScrollToBottom = stabilizeChatScrollToBottom;
+
+/**
+ * Gently reveal the bottom of the chat thread ONLY if the user is already near it.
+ * Used for the typing indicator so the card doesn't yank users away from history.
+ */
+export function scrollChatToBottomIfNearBottom(thresholdPx = 200) {
+    const el = document.getElementById('chat-scroll-area');
+    if (!el) {
+        return;
+    }
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom > thresholdPx) {
+        return;
+    }
+
+    requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+    });
+}
+
+window.scrollChatToBottomIfNearBottom = scrollChatToBottomIfNearBottom;

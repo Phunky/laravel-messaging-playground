@@ -114,4 +114,30 @@ class MessageReactionsTest extends TestCase
             ->call('onOpenMessageReactionPicker', messageId: (int) $message->id)
             ->assertSet('pickerOpen', true);
     }
+
+    public function test_remote_reaction_event_only_busts_cache_for_matching_message(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $messaging = app(MessagingService::class);
+        [$conversation] = $messaging->findOrCreateConversation($alice, $bob);
+        $message = $messaging->sendMessage($conversation, $alice, 'Hello');
+
+        $component = Livewire::actingAs($alice)
+            ->test('chat.message-reactions', [
+                'messageId' => (int) $message->id,
+                'conversationId' => (int) $conversation->id,
+            ]);
+
+        $this->assertSame(0, $component->get('reactionCacheBust'));
+
+        $component->call('onRemoteReactionUpdated', conversationId: (int) $conversation->id, messageId: 999_999);
+        $this->assertSame(0, $component->get('reactionCacheBust'));
+
+        $component->call('onRemoteReactionUpdated', conversationId: 999_999, messageId: (int) $message->id);
+        $this->assertSame(0, $component->get('reactionCacheBust'));
+
+        $component->call('onRemoteReactionUpdated', conversationId: (int) $conversation->id, messageId: (int) $message->id);
+        $this->assertSame(1, $component->get('reactionCacheBust'));
+    }
 }

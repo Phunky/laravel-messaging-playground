@@ -2,6 +2,7 @@
 
 use Phunky\Actions\Chat\LoadConversationMediaForViewer;
 use Phunky\Livewire\Concerns\SerializesChatMessages;
+use Phunky\Livewire\Concerns\TracksOpenConversationWhispers;
 use Phunky\Models\User;
 use Phunky\Support\MessageAttachmentTypeRegistry;
 use Illuminate\Validation\Rule;
@@ -20,6 +21,7 @@ use Phunky\LaravelMessaging\Services\MessagingService;
 new class extends Component
 {
     use SerializesChatMessages;
+    use TracksOpenConversationWhispers;
     use WithFileUploads;
 
     public ?int $conversationId = null;
@@ -209,6 +211,7 @@ new class extends Component
         $this->mediaViewerItems = [];
         $this->mediaViewerIndex = 0;
         $this->conversationHasMedia = false;
+        $this->clearOpenConversationWhispers();
 
         $this->loadHeader($conversation, $user);
         $this->refreshConversationHasMediaFlag();
@@ -266,6 +269,26 @@ JS);
         }
 
         $this->markConversationDisplayedAsRead($messaging);
+        $this->typingUsers = [];
+        $this->recordingUsers = [];
+    }
+
+    /**
+     * @param  list<array{id: int|string, name: string}>  $typingUsers
+     */
+    #[On('messaging-typing-updated')]
+    public function onMessagingTypingUpdated(int $conversationId, array $typingUsers): void
+    {
+        $this->applyOpenConversationWhisperUpdate('typing', $conversationId, $typingUsers);
+    }
+
+    /**
+     * @param  list<array{id: int|string, name: string}>  $recordingUsers
+     */
+    #[On('messaging-recording-updated')]
+    public function onMessagingRecordingUpdated(int $conversationId, array $recordingUsers): void
+    {
+        $this->applyOpenConversationWhisperUpdate('recording', $conversationId, $recordingUsers);
     }
 
     public function navigateBackToInbox(): void
@@ -992,14 +1015,22 @@ JS);
                         <div
                             class="w-full"
                             x-data="chatVoiceNote({
+                                conversationId: {{ (int) ($conversationId ?? 0) }},
                                 errUnsupported: @js(__('Microphone recording is not supported in this browser.')),
                                 errPermission: @js(__('Microphone permission was denied.')),
                                 errUpload: @js(__('Could not upload the voice note. Please try again.')),
                             })"
                         >
-                            <div x-show="!recording" class="w-full">
+                            <div
+                                x-show="!recording"
+                                class="w-full"
+                                wire:key="typing-emitter-wrap-{{ (int) ($conversationId ?? 0) }}"
+                                x-data="chatTypingEmitter({{ (int) ($conversationId ?? 0) }})"
+                            >
                                 <flux:input
-                                    wire:model.live="newMessage"
+                                    wire:model.live.debounce.400ms="newMessage"
+                                    x-on:input="ping()"
+                                    x-on:blur="stopNow()"
                                     placeholder="{{ __('Type a message…') }}"
                                     class="w-full"
                                 >
@@ -1047,7 +1078,7 @@ JS);
                                                     size="sm"
                                                     variant="subtle"
                                                     icon="paper-airplane"
-                                                    class="shrink-0 data-loading:opacity-50 data-loading:pointer-events-none"
+                                                    class="shrink-0 !text-emerald-600 hover:!text-emerald-700 dark:!text-emerald-400 dark:hover:!text-emerald-300"
                                                 />
                                             @endif
                                         </div>
@@ -1154,7 +1185,7 @@ JS);
                                         size="sm"
                                         variant="subtle"
                                         icon="paper-airplane"
-                                        class="shrink-0 data-loading:opacity-50 data-loading:pointer-events-none"
+                                        class="shrink-0 !text-emerald-600 hover:!text-emerald-700 dark:!text-emerald-400 dark:hover:!text-emerald-300"
                                         x-bind:disabled="processing"
                                         title="{{ __('Send voice note') }}"
                                         @click.prevent="finishRecording()"

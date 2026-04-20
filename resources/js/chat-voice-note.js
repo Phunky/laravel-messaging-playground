@@ -1,6 +1,7 @@
 document.addEventListener('alpine:init', () => {
-    Alpine.data('chatVoiceNote', (i18n) => ({
-        ...i18n,
+    Alpine.data('chatVoiceNote', (config) => ({
+        ...config,
+        conversationId: Number(config?.conversationId) || null,
         recording: false,
         processing: false,
         paused: false,
@@ -23,9 +24,77 @@ document.addEventListener('alpine:init', () => {
         previewUrl: null,
         previewListening: false,
         previewDuration: 0,
+        /**
+         * Heartbeat interval id. While the user is recording we whisper the
+         * `recording` event roughly every 5s so other participants' TTLs keep
+         * extending. The `stopRecordingWhisper()` tear-down path sends a
+         * trailing false + clears the interval.
+         */
+        recordingHeartbeat: null,
+        recordingWhisperMs: 5000,
 
         init() {
             this.waveformBars = Array.from({ length: this.barCount }, () => 8);
+        },
+
+        destroy() {
+            this.stopRecordingWhisper();
+        },
+
+        recordingIdentity() {
+            const idMeta = document.querySelector('meta[name="chat-user-id"]');
+            const nameMeta = document.querySelector('meta[name="chat-user-name"]');
+            const rawId = idMeta?.getAttribute('content') ?? '';
+            const id = rawId !== '' ? Number(rawId) : NaN;
+
+            return {
+                messageable_type: null,
+                messageable_id: Number.isNaN(id) ? null : id,
+                name: nameMeta?.getAttribute('content') ?? '',
+            };
+        },
+
+        startRecordingWhisper() {
+            const echo = window.__chatMessagingEcho;
+            const cid = this.conversationId;
+
+            if (! echo || ! Number.isInteger(cid) || cid <= 0) {
+                return;
+            }
+
+            const who = this.recordingIdentity();
+
+            echo.whisperRecording(cid, who);
+
+            if (this.recordingHeartbeat) {
+                window.clearInterval(this.recordingHeartbeat);
+            }
+
+            this.recordingHeartbeat = window.setInterval(() => {
+                if (! this.recording) {
+                    this.stopRecordingWhisper();
+
+                    return;
+                }
+
+                echo.whisperRecording(cid, who);
+            }, this.recordingWhisperMs);
+        },
+
+        stopRecordingWhisper() {
+            if (this.recordingHeartbeat) {
+                window.clearInterval(this.recordingHeartbeat);
+                this.recordingHeartbeat = null;
+            }
+
+            const echo = window.__chatMessagingEcho;
+            const cid = this.conversationId;
+
+            if (! echo || ! Number.isInteger(cid) || cid <= 0) {
+                return;
+            }
+
+            echo.whisperStopRecording(cid, this.recordingIdentity());
         },
 
         $lw() {
@@ -425,6 +494,7 @@ document.addEventListener('alpine:init', () => {
                 this.discardIntent = false;
                 this.recording = false;
                 this.paused = false;
+                this.stopRecordingWhisper();
 
                 if (this.maxDurationTimer) {
                     clearTimeout(this.maxDurationTimer);
@@ -444,6 +514,7 @@ document.addEventListener('alpine:init', () => {
             this.mediaRecorder.onstop = async () => {
                 this.recording = false;
                 this.paused = false;
+                this.stopRecordingWhisper();
 
                 if (this.maxDurationTimer) {
                     clearTimeout(this.maxDurationTimer);
@@ -513,6 +584,7 @@ document.addEventListener('alpine:init', () => {
 
             this.mediaRecorder.start(250);
             this.recording = true;
+            this.startRecordingWhisper();
             this.startTimer();
             this.startWaveformAnalysis(stream);
 

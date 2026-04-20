@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Phunky\LaravelMessaging\Services\MessagingService;
 use Phunky\LaravelMessagingAttachments\Attachment;
+use Phunky\LaravelMessagingAttachments\AttachmentService;
 use Phunky\LaravelMessagingGroups\GroupService;
 use Phunky\Models\User;
 use Tests\TestCase;
@@ -676,6 +677,112 @@ class MessagePaneTest extends TestCase
         Livewire::actingAs($alice)
             ->test('chat.message-thread', ['conversationId' => $convA->id, 'isActive' => true])
             ->assertSee('Only in A');
+    }
+
+    public function test_sender_does_not_see_duplicate_when_remote_broadcast_beats_local_append(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $messaging = app(MessagingService::class);
+        [$conversation] = $messaging->findOrCreateConversation($alice, $bob);
+
+        $thread = Livewire::actingAs($alice)
+            ->test('chat.message-thread', [
+                'conversationId' => $conversation->id,
+                'isActive' => true,
+            ]);
+
+        $this->assertSame([], $thread->get('messagesViewport'));
+
+        $message = $messaging->sendMessage($conversation, $alice, 'race winner');
+
+        // Simulate the presence-channel broadcast arriving on the sender's
+        // browser before the Livewire response has had a chance to deliver
+        // the local chat-message-appended dispatch.
+        $thread->call('onRemoteMessageSent', conversationId: (int) $conversation->id, messageId: (int) $message->id);
+
+        // Now the HTTP roundtrip completes and the sender's message-pane
+        // dispatches chat-message-appended with the serialized message.
+        $serialized = [
+            'id' => (int) $message->id,
+            'body' => 'race winner',
+            'sent_at' => $message->sent_at?->toIso8601String(),
+            'edited_at' => null,
+            'sender_id' => (string) $alice->getKey(),
+            'sender_name' => $alice->name,
+            'is_me' => true,
+            'attachments' => [],
+        ];
+        $thread->dispatch('chat-message-appended', conversationId: (int) $conversation->id, message: $serialized);
+
+        $viewport = $thread->get('messagesViewport');
+        $this->assertCount(1, $viewport, 'Sender should not see a duplicate row when the broadcast beats the local append.');
+        $this->assertSame((int) $message->id, (int) $viewport[0]['id']);
+    }
+
+    public function test_remote_attachment_event_reserializes_existing_message_row(): void
+    {
+        Config::set('messaging.media_disk', 's3');
+        Storage::fake('s3');
+
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $messaging = app(MessagingService::class);
+        [$conversation] = $messaging->findOrCreateConversation($alice, $bob);
+        $message = $messaging->sendMessage($conversation, $bob, 'check this out');
+
+        $thread = Livewire::actingAs($alice)
+            ->test('chat.message-thread', [
+                'conversationId' => $conversation->id,
+                'isActive' => true,
+            ]);
+
+        $viewport = $thread->get('messagesViewport');
+        $this->assertCount(1, $viewport);
+        $this->assertSame([], $viewport[0]['attachments']);
+
+        Storage::disk('s3')->put('voice.webm', 'fake-audio');
+
+        app(AttachmentService::class)->attach($message, $bob, [
+            'type' => 'voice_note',
+            'path' => 'voice.webm',
+            'filename' => 'voice.webm',
+            'disk' => 's3',
+            'mime_type' => 'audio/webm',
+            'size' => 1024,
+        ]);
+
+        $thread->call('onRemoteAttachmentUpdated', conversationId: (int) $conversation->id, messageId: (int) $message->id);
+
+        $viewport = $thread->get('messagesViewport');
+        $this->assertCount(1, $viewport);
+        $this->assertCount(1, $viewport[0]['attachments']);
+        $this->assertSame('voice_note', $viewport[0]['attachments'][0]['type']);
+    }
+
+    public function test_remote_attachment_event_ignores_unrelated_conversation(): void
+    {
+        Config::set('messaging.media_disk', 's3');
+        Storage::fake('s3');
+
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $charlie = User::factory()->create();
+        $messaging = app(MessagingService::class);
+        [$convA] = $messaging->findOrCreateConversation($alice, $bob);
+        [$convB] = $messaging->findOrCreateConversation($alice, $charlie);
+
+        $messageInB = $messaging->sendMessage($convB, $charlie, 'over here');
+
+        $thread = Livewire::actingAs($alice)
+            ->test('chat.message-thread', [
+                'conversationId' => $convA->id,
+                'isActive' => true,
+            ]);
+
+        $thread->call('onRemoteAttachmentUpdated', conversationId: (int) $convB->id, messageId: (int) $messageInB->id);
+
+        $this->assertSame([], $thread->get('messagesViewport'));
     }
 
     public function test_message_thread_refreshes_viewport_when_reactivated_after_new_db_messages(): void

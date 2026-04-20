@@ -94,6 +94,20 @@ new class extends Component
         $this->pickerOpen = true;
     }
 
+    #[On('messaging-remote-reaction-updated')]
+    public function onRemoteReactionUpdated(int $conversationId, int $messageId): void
+    {
+        if ($messageId !== $this->messageId) {
+            return;
+        }
+
+        if ($this->conversationId !== null && $conversationId !== $this->conversationId) {
+            return;
+        }
+
+        $this->reactionCacheBust++;
+    }
+
     public function isFluxIconKey(string $reaction): bool
     {
         return (bool) preg_match('/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/', $reaction);

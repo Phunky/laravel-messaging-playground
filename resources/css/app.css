@@ -24,3 +24,44 @@
 audio.chat-native-audio::-webkit-media-controls-overflow-button {
     display: none;
 }
+
+/*
+ * Typing indicator: three bouncing dots used in the conversation list preview
+ * and above the composer. Staggered via inline animation-delay per dot.
+ */
+@keyframes chat-typing-bounce {
+    0%,
+    60%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    30% {
+        transform: translateY(-3px);
+        opacity: 1;
+    }
+}
+
+.chat-typing-dot {
+    animation: chat-typing-bounce 1s infinite ease-in-out;
+}
+
+/**
+ * Pulsing red mic for the "recording a voice note…" indicator. Mirrors the
+ * typing-dot approach but pulses opacity + scale instead of bouncing.
+ */
+@keyframes chat-recording-pulse {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.45;
+        transform: scale(0.85);
+    }
+}
+
+.chat-recording-mic {
+    animation: chat-recording-pulse 1.2s infinite ease-in-out;
+}

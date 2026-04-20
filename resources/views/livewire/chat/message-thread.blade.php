@@ -19,6 +19,16 @@ new class extends Component
     public bool $isGroup = false;
 
     /**
+     * @var list<array{id: int, name: string}>
+     */
+    public array $typingUsers = [];
+
+    /**
+     * @var list<array{id: int, name: string}>
+     */
+    public array $recordingUsers = [];
+
+    /**
      * @var list<array{id: int, body: string, sent_at: ?string, edited_at: ?string, sender_id: string, sender_name: string, is_me: bool, attachments: list<array{id: int, type: string, url: string, filename: string, mime_type: ?string, size: ?int}>}>
      */
     public array $messagesViewport = [];
@@ -158,6 +168,43 @@ new class extends Component
         }
     }
 
+    /**
+     * Upsert a serialized message into the viewport by id. Existing rows are
+     * replaced; new rows are appended.
+     */
+    private function upsertViewportMessage(array $serialized, bool $scrollOnInsert = false): bool
+    {
+        $messageId = (int) ($serialized['id'] ?? 0);
+        $inserted = true;
+
+        if ($messageId > 0) {
+            $this->messagesViewport = array_map(
+                function (array $row) use ($messageId, $serialized, &$inserted): array {
+                    if ((int) $row['id'] === $messageId) {
+                        $inserted = false;
+
+                        return $serialized;
+                    }
+
+                    return $row;
+                },
+                $this->messagesViewport,
+            );
+        }
+
+        if ($inserted) {
+            $this->messagesViewport = [...$this->messagesViewport, $serialized];
+            if ($scrollOnInsert) {
+                $this->js('queueMicrotask(() => requestAnimationFrame(() => window.stabilizeChatScrollToBottom?.()))');
+            }
+        }
+
+        $this->isIslandPartialRender = false;
+        $this->islandPartialRows = [];
+
+        return $inserted;
+    }
+
     #[On('chat-message-appended')]
     public function onChatMessageAppended(int $conversationId, array $message): void
     {
@@ -165,9 +212,7 @@ new class extends Component
             return;
         }
 
-        $this->messagesViewport = [...$this->messagesViewport, $message];
-        $this->isIslandPartialRender = false;
-        $this->islandPartialRows = [];
+        $this->upsertViewportMessage($message);
     }
 
     #[On('chat-message-replaced')]
@@ -196,6 +241,69 @@ new class extends Component
         ));
     }
 
+    /**
+     * @param  list<array{id: int|string, name: string}>  $users
+     * @return list<array{id: int, name: string}>
+     */
+    private function sanitizeWhisperUsers(array $users): array
+    {
+        $selfKey = auth()->id() !== null ? (string) auth()->id() : null;
+
+        return array_values(array_filter(array_map(
+            static function (array $row): ?array {
+                $id = $row['id'] ?? null;
+                $name = isset($row['name']) ? trim((string) $row['name']) : '';
+                if ($id === null || $name === '') {
+                    return null;
+                }
+
+                return ['id' => (int) $id, 'name' => $name];
+            },
+            $users,
+        ), static fn (?array $row): bool => $row !== null && ($selfKey === null || (string) $row['id'] !== $selfKey)));
+    }
+
+    private function revealWhisperCardInViewport(): void
+    {
+        $this->js('queueMicrotask(() => requestAnimationFrame(() => window.scrollChatToBottomIfNearBottom?.()))');
+    }
+
+    /**
+     * @param  list<array{id: int|string, name: string}>  $typingUsers
+     */
+    #[On('messaging-typing-updated')]
+    public function onMessagingTypingUpdated(int $conversationId, array $typingUsers): void
+    {
+        if (! $this->isActive || $conversationId !== $this->conversationId) {
+            return;
+        }
+
+        $previous = $this->typingUsers;
+        $this->typingUsers = $this->sanitizeWhisperUsers($typingUsers);
+
+        if ($previous === [] && $this->typingUsers !== [] && $this->recordingUsers === []) {
+            $this->revealWhisperCardInViewport();
+        }
+    }
+
+    /**
+     * @param  list<array{id: int|string, name: string}>  $recordingUsers
+     */
+    #[On('messaging-recording-updated')]
+    public function onMessagingRecordingUpdated(int $conversationId, array $recordingUsers): void
+    {
+        if (! $this->isActive || $conversationId !== $this->conversationId) {
+            return;
+        }
+
+        $previous = $this->recordingUsers;
+        $this->recordingUsers = $this->sanitizeWhisperUsers($recordingUsers);
+
+        if ($previous === [] && $this->recordingUsers !== []) {
+            $this->revealWhisperCardInViewport();
+        }
+    }
+
     #[On('messaging-remote-message-sent')]
     public function onRemoteMessageSent(int $conversationId, int $messageId): void
     {
@@ -203,22 +311,15 @@ new class extends Component
             return;
         }
 
-        foreach ($this->messagesViewport as $row) {
-            if ((int) $row['id'] === $messageId) {
-                return;
-            }
-        }
+        $this->typingUsers = [];
+        $this->recordingUsers = [];
 
         $message = Message::query()->with(['messageable', 'attachments'])->find($messageId);
         if (! $message instanceof Message || (int) $message->conversation_id !== $this->conversationId) {
             return;
         }
 
-        $this->messagesViewport = [...$this->messagesViewport, $this->serializeMessage($message)];
-        $this->isIslandPartialRender = false;
-        $this->islandPartialRows = [];
-
-        $this->js('queueMicrotask(() => requestAnimationFrame(() => window.stabilizeChatScrollToBottom?.()))');
+        $this->upsertViewportMessage($this->serializeMessage($message), scrollOnInsert: true);
     }
 
     #[On('messaging-remote-message-edited')]
@@ -249,6 +350,27 @@ new class extends Component
         }
 
         $this->onChatMessageRemoved($conversationId, $messageId);
+    }
+
+    /**
+     * Voice notes + other attachments land on the sender's message *after* the
+     * MessageSent broadcast goes out (attachMany runs post-send). Re-serialize
+     * the affected row so the attachment strip appears on the recipient once
+     * the attachment event arrives.
+     */
+    #[On('messaging-remote-attachment-updated')]
+    public function onRemoteAttachmentUpdated(int $conversationId, int $messageId): void
+    {
+        if (! $this->isActive || $conversationId !== $this->conversationId) {
+            return;
+        }
+
+        $message = Message::query()->with(['messageable', 'attachments'])->find($messageId);
+        if (! $message instanceof Message || (int) $message->conversation_id !== $this->conversationId) {
+            return;
+        }
+
+        $this->upsertViewportMessage($this->serializeMessage($message), scrollOnInsert: true);
     }
 };
 ?>
@@ -289,7 +411,18 @@ new class extends Component
 
                     <x-chat.message-card :msg="$msg" :conversation-id="$conversationId" :is-group="$isGroup" />
                 @endforeach
+
             </div>
         </div>
     @endisland
+
+    @if ($isActive && $recordingUsers !== [])
+        <div class="mt-3" wire:key="thread-recording-card-wrap-{{ $conversationId }}">
+            <x-chat.whisper-message-card :users="$recordingUsers" variant="recording" />
+        </div>
+    @elseif ($isActive && $typingUsers !== [])
+        <div class="mt-3" wire:key="thread-typing-card-wrap-{{ $conversationId }}">
+            <x-chat.whisper-message-card :users="$typingUsers" variant="typing" />
+        </div>
+    @endif
 </div>

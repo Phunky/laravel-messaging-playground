@@ -5,6 +5,7 @@ use Illuminate\Pagination\Cursor;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Phunky\Livewire\Concerns\TracksInboxWhispers;
 use Phunky\Support\ConversationListMessagePreview;
 use Phunky\LaravelMessagingReactions\Reaction;
 use Livewire\Attributes\On;
@@ -16,14 +17,24 @@ use Phunky\LaravelMessaging\Models\Message;
 
 new class extends Component
 {
+    use TracksInboxWhispers;
+
     public ?int $selectedConversationId = null;
 
-    /** @var list<array{conversation_id: int, title: string, subtitle: string, is_group: bool, updated_at: ?string, unread_count: int}> */
+    /** @var list<array{conversation_id: int, title: string, subtitle: string, is_group: bool, updated_at: ?string, unread_count: int, other_participant_ids: list<int>}> */
     public array $rows = [];
 
     public ?string $nextCursor = null;
 
     public bool $hasMore = true;
+
+    /**
+     * Users present on each conversation's presence channel (== online with
+     * that thread open). Keyed by conversation id.
+     *
+     * @var array<int, list<int>>
+     */
+    public array $onlineUserIdsByConversation = [];
 
     public function mount(): void
     {
@@ -34,6 +45,44 @@ new class extends Component
     public function refreshList(): void
     {
         $this->loadPage(reset: true);
+    }
+
+    /**
+     * @param  list<array{id: int|string, name: string}>  $typingUsers
+     */
+    #[On('messaging-typing-updated')]
+    public function onMessagingTypingUpdated(int $conversationId, array $typingUsers): void
+    {
+        $this->applyInboxWhisperUpdate('typing', $conversationId, $typingUsers);
+    }
+
+    /**
+     * @param  list<array{id: int|string, name: string}>  $recordingUsers
+     */
+    #[On('messaging-recording-updated')]
+    public function onMessagingRecordingUpdated(int $conversationId, array $recordingUsers): void
+    {
+        $this->applyInboxWhisperUpdate('recording', $conversationId, $recordingUsers);
+    }
+
+    /**
+     * @param  list<int|string>  $onlineUserIds
+     */
+    #[On('messaging-presence-updated')]
+    public function onMessagingPresenceUpdated(int $conversationId, array $onlineUserIds): void
+    {
+        $normalised = array_values(array_unique(array_filter(array_map(
+            static fn ($id): int => (int) $id,
+            $onlineUserIds,
+        ))));
+
+        if ($normalised === []) {
+            unset($this->onlineUserIdsByConversation[$conversationId]);
+
+            return;
+        }
+
+        $this->onlineUserIdsByConversation[$conversationId] = $normalised;
     }
 
     public function loadMore(): void
@@ -144,6 +193,14 @@ new class extends Component
         $subtitle = '';
         $isGroup = $group !== null;
 
+        $otherParticipantIds = $conversation->participants
+            ->map(fn ($p) => $p->messageable)
+            ->filter()
+            ->filter(fn ($m) => $m instanceof User && (string) $m->getKey() !== (string) $user->getKey())
+            ->map(fn (User $m) => (int) $m->getKey())
+            ->values()
+            ->all();
+
         if ($isGroup) {
             $title = $group->name;
         } else {
@@ -184,6 +241,7 @@ new class extends Component
             'updated_at' => $updatedIso,
             'formatted_time' => $this->formatTimestamp($updatedIso),
             'unread_count' => (int) ($conversation->unread_count ?? 0),
+            'other_participant_ids' => $otherParticipantIds,
         ];
     }
 
@@ -219,18 +277,37 @@ new class extends Component
 <div class="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         @forelse ($rows as $row)
+            @php
+                $cid = $row['conversation_id'];
+                $recordingNames = $recordingByConversation[$cid] ?? [];
+                $isRecording = $recordingNames !== [];
+                $typingNames = $typingByConversation[$cid] ?? [];
+                $isTyping = ! $isRecording && $typingNames !== [];
+                $onlineIds = $onlineUserIdsByConversation[$cid] ?? [];
+                $isOtherOnline = ! $row['is_group']
+                    && array_intersect($row['other_participant_ids'], $onlineIds) !== [];
+            @endphp
             <button
                 type="button"
-                wire:key="conv-{{ $row['conversation_id'] }}"
-                wire:click="$parent.selectConversation({{ $row['conversation_id'] }})"
-                class="flex w-full items-start gap-3 border-b border-zinc-100 px-3 py-3 text-left transition hover:bg-zinc-100/80 dark:border-zinc-800 dark:hover:bg-zinc-800/50 {{ $selectedConversationId === $row['conversation_id'] ? 'bg-zinc-100 dark:bg-zinc-800' : '' }}"
+                wire:key="conv-{{ $cid }}"
+                wire:click="$parent.selectConversation({{ $cid }})"
+                class="flex w-full items-start gap-3 border-b border-zinc-100 px-3 py-3 text-left transition hover:bg-zinc-100/80 dark:border-zinc-800 dark:hover:bg-zinc-800/50 {{ $selectedConversationId === $cid ? 'bg-zinc-100 dark:bg-zinc-800' : '' }}"
             >
-                <flux:avatar
-                    :name="$row['title']"
-                    color="auto"
-                    color:seed="{{ $row['conversation_id'] }}"
-                    size="sm"
-                />
+                <div class="relative shrink-0">
+                    <flux:avatar
+                        :name="$row['title']"
+                        color="auto"
+                        color:seed="{{ $cid }}"
+                        size="sm"
+                    />
+                    @if ($isOtherOnline)
+                        <span
+                            class="absolute -right-0.5 -bottom-0.5 inline-block size-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900"
+                            title="{{ __('Online') }}"
+                            aria-label="{{ __('Online') }}"
+                        ></span>
+                    @endif
+                </div>
 
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
@@ -245,7 +322,11 @@ new class extends Component
                         @endif
                     </div>
                     <div class="mt-0.5 flex items-center gap-2">
-                        @if ($row['subtitle'] !== '')
+                        @if ($isRecording)
+                            <x-chat.whisper-indicator :users="$recordingNames" variant="recording" scope="inbox" />
+                        @elseif ($isTyping)
+                            <x-chat.whisper-indicator :users="$typingNames" variant="typing" scope="inbox" />
+                        @elseif ($row['subtitle'] !== '')
                             <flux:text size="sm" class="min-w-0 truncate text-zinc-500 dark:text-zinc-400">
                                 {{ $row['subtitle'] }}
                             </flux:text>

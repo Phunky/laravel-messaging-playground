@@ -9,8 +9,15 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 
 Broadcast::channel('messaging.conversation.{conversationId}', function (?User $user, int $conversationId) {
     if (! $user) {
-        return false;
+        return null;
     }
 
-    return $user->conversations()->whereKey($conversationId)->exists();
+    if (! $user->conversations()->whereKey($conversationId)->exists()) {
+        return null;
+    }
+
+    return [
+        'id' => $user->getKey(),
+        'name' => $user->name,
+    ];
 });
