@@ -201,10 +201,14 @@ new class extends Component
 };
 ?>
 
-<div wire:key="reactions-{{ $messageId }}" class="pointer-events-none absolute inset-0 z-10">
+<div wire:key="reactions-{{ $messageId }}" class="w-full">
     @if ($this->reactionState['summary']->isNotEmpty())
         <div
-            class="pointer-events-auto absolute -bottom-2 end-2 z-10 flex max-w-[calc(100%-0.5rem)] flex-wrap items-center justify-end gap-1"
+            @class([
+                'mt-1 flex flex-wrap items-center gap-1',
+                'justify-end pe-2' => $messageAlignment === 'mine',
+                'justify-start ps-2' => $messageAlignment !== 'mine',
+            ])
         >
             @foreach ($this->reactionState['summary'] as $row)
                 <button

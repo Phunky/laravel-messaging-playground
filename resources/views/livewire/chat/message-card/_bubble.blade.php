@@ -7,7 +7,7 @@
 
 <div
     @class([
-        'max-w-[min(85%,36rem)] w-fit',
+        'max-w-[80%] w-fit',
         'group relative touch-manipulation' => $conversationId !== null,
     ])
     @if ($conversationId !== null)
@@ -40,8 +40,9 @@
     <flux:card
         size="sm"
         @class([
-            'relative pb-5',
-            '!border-0 !bg-emerald-600 !text-white dark:!bg-emerald-500 dark:!text-white' => $vm->isMe,
+            'relative !border-0 !rounded-lg !px-3 !py-2 !shadow-none',
+            '!bg-emerald-600 !text-white dark:!bg-emerald-600 dark:!text-white' => $vm->isMe,
+            '!bg-zinc-200 !text-zinc-900 dark:!bg-zinc-700 dark:!text-zinc-50' => ! $vm->isMe,
         ])
     >
         @if ($vm->isMe)
@@ -73,7 +74,7 @@
                     </flux:popover>
                 </flux:dropdown>
             </div>
-        @else
+        @elseif ($isGroup)
             <flux:subheading class="mb-1">{{ $vm->senderName }}</flux:subheading>
         @endif
 
@@ -87,24 +88,31 @@
         @endif
 
         @if ($vm->hasBody())
-            <flux:text class="whitespace-pre-wrap">{{ $vm->body }}</flux:text>
-        @endif
+            <div class="min-w-0 [display:flow-root]">
+                <span class="whitespace-pre-wrap">{{ $vm->body }}</span>
 
-        @if ($vm->sentAt !== null && $vm->sentAt !== '')
-            <flux:text
-                size="sm"
-                @class([
-                    'mt-2 opacity-70',
-                    '!text-emerald-50/90' => $vm->isMe,
-                ])
-            >
-                {{ $vm->formattedSentAt() }}
-                @if ($vm->isEdited())
-                    <span class="opacity-90">
-                        · {{ __('Edited') }} {{ $vm->formattedEditedAt() }}
+                @if ($vm->sentAt !== null && $vm->sentAt !== '')
+                    <span
+                        @class([
+                            'float-right ms-2 mt-1 -mb-0.5 shrink-0 whitespace-nowrap text-xs opacity-70 select-none',
+                            '!text-emerald-50/90' => $vm->isMe,
+                        ])
+                    >
+                        {{ $vm->formattedSentAt() }}@if ($vm->isEdited())<span class="opacity-90"> · {{ __('Edited') }} {{ $vm->formattedEditedAt() }}</span>@endif
                     </span>
                 @endif
-            </flux:text>
+            </div>
+        @elseif ($vm->sentAt !== null && $vm->sentAt !== '')
+            <div class="mt-1 -mb-0.5 flex justify-end">
+                <span
+                    @class([
+                        'whitespace-nowrap text-xs opacity-70 select-none',
+                        '!text-emerald-50/90' => $vm->isMe,
+                    ])
+                >
+                    {{ $vm->formattedSentAt() }}@if ($vm->isEdited())<span class="opacity-90"> · {{ __('Edited') }} {{ $vm->formattedEditedAt() }}</span>@endif
+                </span>
+            </div>
         @endif
     </flux:card>
 

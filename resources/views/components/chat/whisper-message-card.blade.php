@@ -8,10 +8,10 @@
     thread. Label/variant logic lives in Phunky\Support\Chat\WhisperLabel.
 --}}
 
-<div class="flex justify-start px-4">
-    <div class="max-w-[min(85%,36rem)] w-fit">
-        <flux:card size="sm" class="relative">
-            <div class="flex items-center gap-1.5 text-sm italic text-zinc-500 dark:text-zinc-400" aria-live="polite">
+<div class="flex justify-start">
+    <div class="max-w-[80%] w-fit">
+        <flux:card size="sm" class="relative !border-0 !rounded-lg !px-3 !py-2 !shadow-none !bg-zinc-200 dark:!bg-zinc-700">
+            <div class="flex items-center gap-1.5 text-sm italic text-zinc-600 dark:text-zinc-300" aria-live="polite">
                 @if ($variant === 'recording')
                     <flux:icon
                         name="microphone"

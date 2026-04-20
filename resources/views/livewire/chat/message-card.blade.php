@@ -66,7 +66,7 @@ new class extends Component
     ])
 >
     @if (! $this->viewModel->isMe && $isGroup)
-        <div class="flex max-w-[min(85%,36rem)] flex-row gap-2">
+        <div class="flex max-w-[80%] flex-row gap-2">
             <flux:avatar
                 :name="$this->viewModel->senderName"
                 color="auto"
@@ -74,10 +74,10 @@ new class extends Component
                 size="xs"
             />
             <div class="min-w-0 flex-1">
-                @include('livewire.chat.message-card._bubble', ['vm' => $this->viewModel])
+                @include('livewire.chat.message-card._bubble', ['vm' => $this->viewModel, 'isGroup' => $isGroup])
             </div>
         </div>
     @else
-        @include('livewire.chat.message-card._bubble', ['vm' => $this->viewModel])
+        @include('livewire.chat.message-card._bubble', ['vm' => $this->viewModel, 'isGroup' => $isGroup])
     @endif
 </div>
