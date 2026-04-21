@@ -1,13 +1,9 @@
 @props([
-    'attachment' => null,
+    'attachment',
     'variant' => 'mine',
 ])
 
-{{--
-    Expects a Phunky\Support\Chat\AttachmentViewModel instance. File-type label,
-    icon, size label, and downloadable filename all come from the DTO so this
-    template stays free of PHP logic.
---}}
+{{-- Document attachment type: icon, meta, download. --}}
 
 <div {{ $attributes->class(['w-full max-w-xs overflow-hidden rounded-xl shadow-md']) }}>
     <div

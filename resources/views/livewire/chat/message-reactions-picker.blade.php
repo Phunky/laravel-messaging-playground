@@ -10,6 +10,12 @@ new class extends Component
 
     public bool $pickerOpen = false;
 
+    /**
+     * When true, the picker sits in normal flow (e.g. beside a video note) instead of absolutely
+     * to the bubble edge — avoids misalignment when the message row is chromeless or short.
+     */
+    public bool $inline = false;
+
     #[On('open-message-reaction-picker')]
     public function onOpenMessageReactionPicker(int $messageId): void
     {
@@ -26,14 +32,22 @@ new class extends Component
             ? 'right-full top-1/2 -translate-y-1/2 mr-2'
             : 'left-full top-1/2 -translate-y-1/2 ml-2';
     }
+
+    public function pickerShellClasses(): string
+    {
+        if ($this->inline) {
+            return 'pointer-events-auto relative z-20 shrink-0 transition-opacity';
+        }
+
+        return 'pointer-events-auto absolute z-20 transition-opacity '.$this->pickerPositionClasses();
+    }
 };
 ?>
 
-<div wire:key="reactions-picker-{{ $messageId }}" class="w-full">
+<div wire:key="reactions-picker-{{ $messageId }}" @class([$this->inline ? 'inline-flex' : 'w-full'])>
     <div
         @class([
-            'pointer-events-auto absolute z-20 transition-opacity',
-            $this->pickerPositionClasses(),
+            $this->pickerShellClasses(),
             'opacity-100' => $this->pickerOpen,
             'opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100' => ! $this->pickerOpen,
         ])

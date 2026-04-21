@@ -4,6 +4,8 @@
     'messageId' => null,
 ])
 
+{{-- Video note: circular clip, inline play, duration; sent time + context menu render in message-card (outside the ring). --}}
+
 @use('Illuminate\Support\Js')
 
 <x-chat.video-note-circle-shell
@@ -37,7 +39,7 @@
     </div>
 
     <div
-        class="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 text-xs font-medium tabular-nums text-white drop-shadow-md"
+        class="pointer-events-none absolute bottom-2 start-2 z-10 text-xs font-medium tabular-nums text-white drop-shadow-md"
         x-text="durationLabel"
     ></div>
 

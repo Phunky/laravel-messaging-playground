@@ -1,13 +1,23 @@
 {{--
     Expects $vm (Phunky\Support\Chat\MessageViewModel) and access to the
     surrounding message-card SFC's $conversationId and $this->* helpers.
-    Renders the actual bubble (card + optional dropdown + attachments + body +
-    timestamp) plus the deferred reactions summary + picker islands beneath it.
+
+    Card type (see MessageViewModel::cardType() / MessageCardType):
+    - StandardBubble: one padded container (rounded-lg, etc.) for body + attachments + meta.
+    - VideoNoteTray: circle + reactions + optional caption in the same container; timestamp/context outside the ring.
 --}}
+
+@php
+    use Phunky\Support\Chat\MessageCardType;
+
+    $variant = $vm->isMe ? 'mine' : 'other';
+    $alignment = $vm->isMe ? 'mine' : 'others';
+@endphp
 
 <div
     @class([
-        'max-w-[80%] w-fit',
+        'max-w-[80%] min-w-0 w-fit',
+        'min-w-[min(260px,100%)]' => $vm->usesStandardBubbleVoiceWidthFloor(),
         'group relative touch-manipulation' => $conversationId !== null,
     ])
     @if ($conversationId !== null)
@@ -18,76 +28,98 @@
         @touchmove="clear()"
     @endif
 >
-    <x-chat.bubble :is-me="$vm->isMe">
-        @if ($vm->isMe)
-            <div class="absolute end-1 top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100">
-                <flux:dropdown position="bottom" align="end">
-                    <flux:button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        icon="ellipsis-horizontal"
-                        class="!size-7 !text-emerald-50 hover:!bg-emerald-700/50 dark:!text-emerald-50 dark:hover:!bg-emerald-600/50"
+    @if ($vm->cardType() === MessageCardType::VideoNoteTray)
+        <div @class([
+            'flex w-fit max-w-[80%] flex-col gap-1',
+            'items-end' => $vm->isMe,
+            'items-start' => ! $vm->isMe,
+            'group' => $conversationId === null,
+        ])>
+            @if ($vm->isMe)
+                <div class="flex w-full min-w-0 justify-end">
+                    <x-chat.message-context-menu tone="on_video_tray_outside" />
+                </div>
+            @elseif ($isGroup)
+                <x-chat.message-sender-label :name="$vm->senderName" />
+            @endif
+
+            @if ($conversationId !== null)
+                <div
+                    @class([
+                        'flex items-center gap-2',
+                        'flex-row-reverse' => ! $vm->isMe,
+                        'mb-2' => $vm->hasBody(),
+                    ])
+                >
+                    <x-chat.message-reaction-picker-island
+                        :message-id="$vm->id"
+                        :conversation-id="$conversationId"
+                        :message-alignment="$alignment"
+                        :inline="true"
                     />
 
-                    <flux:popover class="min-w-36 p-1">
-                        <button
-                            type="button"
-                            wire:click="startEdit"
-                            class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                        >
-                            {{ __('Edit') }}
-                        </button>
-                        <button
-                            type="button"
-                            wire:click="requestDelete"
-                            class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                        >
-                            {{ __('Delete') }}
-                        </button>
-                    </flux:popover>
-                </flux:dropdown>
-            </div>
-        @elseif ($isGroup)
-            <flux:subheading class="mb-1">{{ $vm->senderName }}</flux:subheading>
-        @endif
+                    <x-chat.message-attachment-stack
+                        class="shrink-0"
+                        :attachments="$vm->attachments"
+                        :message-id="$vm->id"
+                        :variant="$variant"
+                        :vm="$vm"
+                    />
+                </div>
+            @else
+                <x-chat.message-attachment-stack
+                    @class([
+                        'mb-2' => $vm->hasBody(),
+                    ])
+                    :attachments="$vm->attachments"
+                    :message-id="$vm->id"
+                    :variant="$variant"
+                    :vm="$vm"
+                />
+            @endif
 
-        @if ($vm->hasAttachments())
-            <x-chat.message-attachments
-                class="mb-2"
-                :attachments="$vm->attachments"
-                :message-id="$vm->id"
-                :variant="$vm->isMe ? 'mine' : 'other'"
-            />
-        @endif
+            @if ($vm->showVideoNoteInlineMeta())
+                <div class="flex w-full min-w-0 justify-end">
+                    <x-chat.message-sent-meta :vm="$vm" :include-edited="false" />
+                </div>
+            @endif
 
-        @if ($vm->hasBody())
-            <div class="min-w-0 [display:flow-root]">
-                <span class="whitespace-pre-wrap">{{ $vm->body }}</span>
+            @if ($vm->hasBody())
+                <div
+                    @class([
+                        'relative mt-1 min-w-0 max-w-full rounded-lg px-3 py-2 text-sm',
+                        'bg-emerald-600 text-white' => $vm->isMe,
+                        'bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-50' => ! $vm->isMe,
+                    ])
+                >
+                    <x-chat.message-text-block :vm="$vm" />
+                </div>
+            @endif
+        </div>
+    @else
+        <div
+            @class([
+                'relative min-w-0 max-w-full rounded-lg px-3 py-2 text-sm',
+                'bg-emerald-600 text-white' => $vm->isMe,
+                'bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-50' => ! $vm->isMe,
+            ])
+        >
+            @if ($vm->isMe)
+                <x-chat.message-context-menu tone="on_mine_bubble" />
+            @elseif ($isGroup)
+                <x-chat.message-sender-label :name="$vm->senderName" />
+            @endif
 
-                @if ($vm->sentAt !== null && $vm->sentAt !== '')
-                    <x-chat.message-timestamp :vm="$vm" float :is-me="$vm->isMe" />
-                @endif
-            </div>
-        @elseif ($vm->sentAt !== null && $vm->sentAt !== '')
-            <div class="mt-1 -mb-0.5 flex justify-end">
-                <x-chat.message-timestamp :vm="$vm" :is-me="$vm->isMe" />
-            </div>
-        @endif
-    </x-chat.bubble>
+            <x-chat.message-bubble-content :vm="$vm" />
+        </div>
+    @endif
 
     @if ($conversationId !== null)
-        <livewire:chat.message-reactions-summary
+        <x-chat.message-reactions-footer
             :message-id="$vm->id"
             :conversation-id="$conversationId"
-            :message-alignment="$vm->isMe ? 'mine' : 'others'"
-            defer
-        />
-        <livewire:chat.message-reactions-picker
-            :message-id="$vm->id"
-            :conversation-id="$conversationId"
-            :message-alignment="$vm->isMe ? 'mine' : 'others'"
-            defer
+            :message-alignment="$alignment"
+            :show-edge-picker="$vm->cardType() !== MessageCardType::VideoNoteTray"
         />
     @endif
 </div>

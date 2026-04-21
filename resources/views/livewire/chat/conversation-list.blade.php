@@ -240,36 +240,9 @@ new class extends Component
             'subtitle' => $subtitle,
             'is_group' => $isGroup,
             'updated_at' => $updatedIso,
-            'formatted_time' => $this->formatTimestamp($updatedIso),
             'unread_count' => (int) ($conversation->unread_count ?? 0),
             'other_participant_ids' => $otherParticipantIds,
         ];
-    }
-
-    protected function formatTimestamp(?string $iso): string
-    {
-        if ($iso === null || $iso === '') {
-            return '';
-        }
-
-        $tz = (string) config('app.timezone');
-        $ts = Carbon::parse($iso)->timezone($tz);
-        $today = Carbon::now()->timezone($tz)->startOfDay();
-
-        if ($ts->isAfter($today)) {
-            return $ts->format('g:i a');
-        }
-
-        if ($ts->isAfter($today->copy()->subDay())) {
-            return __('Yesterday');
-        }
-
-        $sevenDaysAgo = $today->copy()->subDays(7)->startOfDay();
-        if ($ts->isAfter($sevenDaysAgo)) {
-            return $ts->translatedFormat('l');
-        }
-
-        return $ts->format('d/m/Y');
     }
 
     /**
@@ -352,9 +325,9 @@ new class extends Component
                         @if ($ctx['row']['is_group'])
                             <flux:badge size="sm" color="zinc">{{ __('Group') }}</flux:badge>
                         @endif
-                        @if ($ctx['row']['formatted_time'] !== '')
+                        @if (! empty($ctx['row']['updated_at']))
                             <flux:text size="xs" class="ml-auto shrink-0 text-zinc-400">
-                                {{ $ctx['row']['formatted_time'] }}
+                                <x-chat.message-timestamp :iso="$ctx['row']['updated_at']" preset="inbox" />
                             </flux:text>
                         @endif
                     </div>

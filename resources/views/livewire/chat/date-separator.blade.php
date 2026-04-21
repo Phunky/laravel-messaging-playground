@@ -1,23 +1,17 @@
 <?php
 
-use Livewire\Attributes\Computed;
 use Livewire\Component;
-use Phunky\Support\Chat\ChatTimestamp;
 
 new class extends Component
 {
     public ?string $sentAt = null;
-
-    #[Computed]
-    public function label(): string
-    {
-        return ChatTimestamp::dateSeparator($this->sentAt);
-    }
 };
 ?>
 
-<div class="sticky top-0 flex items-center z-10">
+<div class="sticky top-0 z-10 flex items-center">
     <flux:spacer />
-    <flux:badge size="sm" variant="solid" rounded class="min-w-[100px] justify-around">{{ $this->label }}</flux:badge>
+    <flux:badge size="sm" variant="solid" rounded class="min-w-[100px] justify-around">
+        <x-chat.message-timestamp :iso="$sentAt" preset="date_separator" />
+    </flux:badge>
     <flux:spacer />
 </div>

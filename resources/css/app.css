@@ -21,6 +21,13 @@
  * Native <audio controls>: Chromium/WebKit expose a ⋮ overflow menu; hide that control-only
  * affordance while keeping play/pause and the timeline. Firefox ignores these rules.
  */
+audio.chat-native-audio {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
 audio.chat-native-audio::-webkit-media-controls-overflow-button {
     display: none;
 }

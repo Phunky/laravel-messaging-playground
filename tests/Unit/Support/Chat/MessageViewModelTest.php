@@ -4,6 +4,8 @@ namespace Tests\Unit\Support\Chat;
 
 use Illuminate\Support\Carbon;
 use Phunky\Support\Chat\AttachmentViewModel;
+use Phunky\Support\Chat\MessageBubbleLayout;
+use Phunky\Support\Chat\MessageCardType;
 use Phunky\Support\Chat\MessageViewModel;
 use Tests\TestCase;
 
@@ -91,6 +93,118 @@ class MessageViewModelTest extends TestCase
         $this->assertTrue($list[2]->isFirstOfDay);
     }
 
+    public function test_attachments_are_exclusively_voice_notes(): void
+    {
+        $onlyVoice = MessageViewModel::fromArray($this->raw([
+            'body' => '',
+            'attachments' => [
+                ['id' => 1, 'type' => 'voice_note', 'url' => 'https://x/a.webm', 'filename' => 'a.webm', 'mime_type' => 'audio/webm', 'size' => 100],
+            ],
+        ]));
+        $this->assertTrue($onlyVoice->attachmentsAreExclusivelyVoiceNotes());
+
+        $withCaption = MessageViewModel::fromArray($this->raw([
+            'body' => 'hi',
+            'attachments' => [
+                ['id' => 1, 'type' => 'voice_note', 'url' => 'https://x/a.webm', 'filename' => 'a.webm', 'mime_type' => 'audio/webm', 'size' => 100],
+            ],
+        ]));
+        $this->assertTrue($withCaption->attachmentsAreExclusivelyVoiceNotes());
+
+        $mixed = MessageViewModel::fromArray($this->raw([
+            'attachments' => [
+                ['id' => 1, 'type' => 'voice_note', 'url' => 'https://x/a.webm', 'filename' => 'a.webm', 'mime_type' => 'audio/webm', 'size' => 100],
+                ['id' => 2, 'type' => 'image', 'url' => 'https://x/a.jpg', 'filename' => 'a.jpg', 'mime_type' => 'image/jpeg', 'size' => 100],
+            ],
+        ]));
+        $this->assertFalse($mixed->attachmentsAreExclusivelyVoiceNotes());
+    }
+
+    public function test_attachments_are_exclusively_video_notes(): void
+    {
+        $onlyVn = MessageViewModel::fromArray($this->raw([
+            'body' => '',
+            'attachments' => [
+                ['id' => 1, 'type' => 'video_note', 'url' => 'https://x/n.webm', 'filename' => 'n.webm', 'mime_type' => 'video/webm', 'size' => 100],
+            ],
+        ]));
+        $this->assertTrue($onlyVn->attachmentsAreExclusivelyVideoNotes());
+        $this->assertTrue($onlyVn->showVideoNoteInlineMeta());
+
+        $vnWithCaption = MessageViewModel::fromArray($this->raw([
+            'body' => 'look',
+            'attachments' => [
+                ['id' => 1, 'type' => 'video_note', 'url' => 'https://x/n.webm', 'filename' => 'n.webm', 'mime_type' => 'video/webm', 'size' => 100],
+            ],
+        ]));
+        $this->assertTrue($vnWithCaption->attachmentsAreExclusivelyVideoNotes());
+        $this->assertFalse($vnWithCaption->showVideoNoteInlineMeta());
+
+        $mixed = MessageViewModel::fromArray($this->raw([
+            'attachments' => [
+                ['id' => 1, 'type' => 'video_note', 'url' => 'https://x/n.webm', 'filename' => 'n.webm', 'mime_type' => 'video/webm', 'size' => 100],
+                ['id' => 2, 'type' => 'image', 'url' => 'https://x/a.jpg', 'filename' => 'a.jpg', 'mime_type' => 'image/jpeg', 'size' => 100],
+            ],
+        ]));
+        $this->assertFalse($mixed->attachmentsAreExclusivelyVideoNotes());
+
+        $textOnly = MessageViewModel::fromArray($this->raw(['attachments' => []]));
+        $this->assertFalse($textOnly->attachmentsAreExclusivelyVideoNotes());
+    }
+
+    public function test_bubble_layout_text_only_attachments_only_and_captioned(): void
+    {
+        $textOnly = MessageViewModel::fromArray($this->raw([
+            'body' => 'hi',
+            'attachments' => [],
+        ]));
+        $this->assertSame(MessageBubbleLayout::TextOnly, $textOnly->bubbleLayout());
+
+        $attachmentsOnly = MessageViewModel::fromArray($this->raw([
+            'body' => '',
+            'attachments' => [
+                ['id' => 1, 'type' => 'image', 'url' => 'https://x', 'filename' => 'a.jpg', 'mime_type' => 'image/jpeg', 'size' => 100],
+            ],
+        ]));
+        $this->assertSame(MessageBubbleLayout::AttachmentsOnly, $attachmentsOnly->bubbleLayout());
+
+        $captioned = MessageViewModel::fromArray($this->raw([
+            'body' => 'caption',
+            'attachments' => [
+                ['id' => 1, 'type' => 'image', 'url' => 'https://x', 'filename' => 'a.jpg', 'mime_type' => 'image/jpeg', 'size' => 100],
+            ],
+        ]));
+        $this->assertSame(MessageBubbleLayout::Captioned, $captioned->bubbleLayout());
+    }
+
+    public function test_message_card_type_routes_standard_bubble_vs_video_note_tray(): void
+    {
+        $textOnly = MessageViewModel::fromArray($this->raw([
+            'body' => 'hi',
+            'attachments' => [],
+        ]));
+        $this->assertSame(MessageCardType::StandardBubble, $textOnly->cardType());
+        $this->assertFalse($textOnly->usesStandardBubbleVoiceWidthFloor());
+
+        $voiceOnly = MessageViewModel::fromArray($this->raw([
+            'body' => '',
+            'attachments' => [
+                ['id' => 1, 'type' => 'voice_note', 'url' => 'https://x/a.webm', 'filename' => 'a.webm', 'mime_type' => 'audio/webm', 'size' => 100],
+            ],
+        ]));
+        $this->assertSame(MessageCardType::StandardBubble, $voiceOnly->cardType());
+        $this->assertTrue($voiceOnly->usesStandardBubbleVoiceWidthFloor());
+
+        $videoNoteOnly = MessageViewModel::fromArray($this->raw([
+            'body' => '',
+            'attachments' => [
+                ['id' => 1, 'type' => 'video_note', 'url' => 'https://x/n.webm', 'filename' => 'n.webm', 'mime_type' => 'video/webm', 'size' => 100],
+            ],
+        ]));
+        $this->assertSame(MessageCardType::VideoNoteTray, $videoNoteOnly->cardType());
+        $this->assertFalse($videoNoteOnly->usesStandardBubbleVoiceWidthFloor());
+    }
+
     public function test_attachment_groups_delegates_to_attachment_view_model(): void
     {
         $vm = MessageViewModel::fromArray($this->raw([
@@ -114,6 +228,7 @@ class MessageViewModelTest extends TestCase
             'attachments' => [
                 ['id' => 1, 'type' => 'image', 'url' => 'https://x', 'filename' => 'a.jpg', 'mime_type' => 'image/jpeg', 'size' => 100],
             ],
+            'read_receipt_display' => 'read',
         ]));
 
         $hydrated = MessageViewModel::fromLivewire($vm->toLivewire());
@@ -121,5 +236,15 @@ class MessageViewModelTest extends TestCase
         $this->assertEquals($vm, $hydrated);
         $this->assertCount(1, $hydrated->attachments);
         $this->assertSame(1, $hydrated->attachments[0]->id);
+        $this->assertSame('read', $hydrated->readReceiptDisplay);
+    }
+
+    public function test_read_receipt_display_invalid_value_falls_back_to_hidden(): void
+    {
+        $vm = MessageViewModel::fromArray($this->raw([
+            'read_receipt_display' => 'bogus',
+        ]));
+
+        $this->assertSame('hidden', $vm->readReceiptDisplay);
     }
 }

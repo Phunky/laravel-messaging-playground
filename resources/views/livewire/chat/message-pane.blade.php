@@ -345,6 +345,17 @@ JS);
         $messaging->markAllRead($conversation, $user);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    protected function serializeMessageForDispatch(Message $message): array
+    {
+        $conversation = Conversation::query()->find($message->conversation_id);
+        $rows = $this->hydrateReadReceipts([$this->serializeMessage($message)], $conversation);
+
+        return $rows[0] ?? $this->serializeMessage($message);
+    }
+
     #[On('messaging-remote-message-sent')]
     public function onMessagingRemoteMessageSent(MessagingService $messaging, int $conversationId, int $messageId): void
     {
@@ -645,7 +656,7 @@ JS);
         try {
             $fresh = $messaging->editMessage($message, $user, $this->editMessageBody);
             $fresh->load(['messageable', 'attachments']);
-            $serialized = $this->serializeMessage($fresh);
+            $serialized = $this->serializeMessageForDispatch($fresh);
 
             $this->dispatch(
                 'chat-message-replaced',
@@ -793,7 +804,7 @@ JS);
             $this->dispatch(
                 'chat-message-appended',
                 conversationId: (int) $conversation->getKey(),
-                message: $this->serializeMessage($message),
+                message: $this->serializeMessageForDispatch($message),
             );
 
             $this->newMessage = '';

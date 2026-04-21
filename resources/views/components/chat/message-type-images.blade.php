@@ -5,10 +5,8 @@
 ])
 
 {{--
-    `items` accepts either serialized attachment arrays or AttachmentViewModel
-    instances. Layout rules (tile count, spans, "+N" overflow) live in
-    Phunky\Support\Chat\AttachmentViewModel::imageGridCells so this template
-    stays branch-light and free of PHP logic.
+    Image attachment type for the message thread: grid tiles, overflow "+N", media viewer dispatch.
+    `items` are AttachmentViewModel instances or raw rows; layout uses AttachmentViewModel::imageGridCells.
 --}}
 
 @use('Phunky\Support\Chat\AttachmentViewModel')

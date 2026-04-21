@@ -117,6 +117,7 @@ new class extends Component
         $page = $query->cursorPaginate(50, ['*'], 'cursor', Cursor::fromEncoded($this->messagesCursor));
 
         $chunk = collect($page->items())->map(fn (Message $m) => $this->serializeMessage($m))->values()->all();
+        $chunk = $this->hydrateReadReceipts($chunk, $conversation);
 
         if ($chunk === []) {
             $this->messagesHasMore = false;
@@ -161,6 +162,7 @@ new class extends Component
 
         $page = $query->cursorPaginate($perPage);
         $chunk = collect($page->items())->map(fn (Message $m) => $this->serializeMessage($m))->values()->all();
+        $chunk = $this->hydrateReadReceipts($chunk, $conversation);
         $this->messagesViewport = array_reverse($chunk);
         $this->messagesCursor = $page->nextCursor()?->encode();
         $this->messagesHasMore = $page->hasMorePages();
@@ -327,7 +329,7 @@ new class extends Component
             return;
         }
 
-        $this->upsertViewportMessage($this->serializeMessage($message), scrollOnInsert: true);
+        $this->upsertViewportMessage($this->serializeMessageHydrated($message), scrollOnInsert: true);
     }
 
     #[On('messaging-remote-message-edited')]
@@ -342,7 +344,7 @@ new class extends Component
             return;
         }
 
-        $serialized = $this->serializeMessage($message);
+        $serialized = $this->serializeMessageHydrated($message);
 
         $this->replaceViewportMessage($serialized);
     }
@@ -375,7 +377,18 @@ new class extends Component
             return;
         }
 
-        $this->upsertViewportMessage($this->serializeMessage($message), scrollOnInsert: true);
+        $this->upsertViewportMessage($this->serializeMessageHydrated($message), scrollOnInsert: true);
+    }
+
+    /**
+     * Serialize a message and stamp read receipts for the active conversation.
+     */
+    private function serializeMessageHydrated(Message $message): array
+    {
+        $conversation = Conversation::query()->find($this->conversationId);
+        $rows = $this->hydrateReadReceipts([$this->serializeMessage($message)], $conversation);
+
+        return $rows[0] ?? $this->serializeMessage($message);
     }
 
     /**

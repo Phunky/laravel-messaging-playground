@@ -6,8 +6,8 @@ use Livewire\Wireable;
 
 /**
  * One row in the inbox (conversation list). Wraps the raw associative array
- * built by `ConversationList::formatRow()` so the template can iterate typed
- * fields without any @php block.
+ * produced by the conversation list Livewire component (`formatRow()`) so
+ * the template can iterate typed fields without any @php block.
  */
 final readonly class ConversationRowViewModel implements Wireable
 {
@@ -26,18 +26,24 @@ final readonly class ConversationRowViewModel implements Wireable
     ) {}
 
     /**
-     * @param  array{conversation_id: int, title: string, subtitle: string, formatted_time: string, unread_count: int, is_group: bool, updated_at: ?string, other_participant_ids: list<int>}  $row
+     * @param  array{conversation_id: int, title: string, subtitle: string, formatted_time?: string, unread_count: int, is_group: bool, updated_at: ?string, other_participant_ids: list<int>}  $row
      */
     public static function fromArray(array $row): self
     {
+        $updatedAt = $row['updated_at'] ?? null;
+        $formatted = $row['formatted_time'] ?? null;
+        if ($formatted === null || $formatted === '') {
+            $formatted = ChatTimestamp::inbox(is_string($updatedAt) ? $updatedAt : null);
+        }
+
         return new self(
             conversationId: (int) $row['conversation_id'],
             title: (string) ($row['title'] ?? ''),
             subtitle: (string) ($row['subtitle'] ?? ''),
-            formattedTime: (string) ($row['formatted_time'] ?? ''),
+            formattedTime: (string) $formatted,
             unreadCount: (int) ($row['unread_count'] ?? 0),
             isGroup: (bool) ($row['is_group'] ?? false),
-            updatedAt: $row['updated_at'] ?? null,
+            updatedAt: is_string($updatedAt) ? $updatedAt : null,
             otherParticipantIds: array_map('intval', $row['other_participant_ids'] ?? []),
         );
     }

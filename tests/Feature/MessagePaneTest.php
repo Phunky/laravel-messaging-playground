@@ -842,4 +842,26 @@ class MessagePaneTest extends TestCase
         $this->assertContains('First in A', $bodies);
         $this->assertContains('Second in A', $bodies);
     }
+
+    public function test_outbound_message_viewport_includes_read_receipt_after_peer_marks_read(): void
+    {
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $messaging = app(MessagingService::class);
+        [$conversation] = $messaging->findOrCreateConversation($alice, $bob);
+        $messaging->sendMessage($conversation, $alice, 'Read me');
+
+        $messaging->markAllRead($conversation, $bob);
+
+        $thread = Livewire::actingAs($alice)
+            ->test('chat.message-thread', [
+                'conversationId' => (int) $conversation->id,
+                'isActive' => true,
+            ]);
+
+        $viewport = $thread->get('messagesViewport');
+        $this->assertCount(1, $viewport);
+        $this->assertTrue($viewport[0]['is_me']);
+        $this->assertSame('read', $viewport[0]['read_receipt_display']);
+    }
 }

@@ -31,13 +31,20 @@ final readonly class MessageViewModel implements Wireable
         public bool $isMe,
         public array $attachments,
         public bool $isFirstOfDay = false,
+        /** hidden: not shown; sent: outbound, not yet read by others; read: outbound, receipt satisfied */
+        public string $readReceiptDisplay = 'hidden',
     ) {}
 
     /**
-     * @param  array{id: int|string, body: string, sent_at: ?string, edited_at: ?string, sender_id: string, sender_name: string, is_me: bool, attachments?: list<array{id: int|string, type: string, url: string, filename: string, mime_type: ?string, size: ?int}>, is_first_of_day?: bool}  $data
+     * @param  array{id: int|string, body: string, sent_at: ?string, edited_at: ?string, sender_id: string, sender_name: string, is_me: bool, attachments?: list<array{id: int|string, type: string, url: string, filename: string, mime_type: ?string, size: ?int}>, is_first_of_day?: bool, read_receipt_display?: string}  $data
      */
     public static function fromArray(array $data): self
     {
+        $receipt = (string) ($data['read_receipt_display'] ?? 'hidden');
+        if (! in_array($receipt, ['hidden', 'sent', 'read'], true)) {
+            $receipt = 'hidden';
+        }
+
         return new self(
             id: (int) $data['id'],
             body: (string) ($data['body'] ?? ''),
@@ -48,6 +55,7 @@ final readonly class MessageViewModel implements Wireable
             isMe: (bool) ($data['is_me'] ?? false),
             attachments: AttachmentViewModel::listFromArray($data['attachments'] ?? []),
             isFirstOfDay: (bool) ($data['is_first_of_day'] ?? false),
+            readReceiptDisplay: $receipt,
         );
     }
 
@@ -99,6 +107,93 @@ final readonly class MessageViewModel implements Wireable
         return $this->attachments !== [];
     }
 
+    public function bubbleLayout(): MessageBubbleLayout
+    {
+        if ($this->hasAttachments() && $this->hasBody()) {
+            return MessageBubbleLayout::Captioned;
+        }
+
+        if ($this->hasAttachments()) {
+            return MessageBubbleLayout::AttachmentsOnly;
+        }
+
+        return MessageBubbleLayout::TextOnly;
+    }
+
+    /**
+     * Which outer message shell to render (standard padded bubble vs video-note tray).
+     */
+    public function cardType(): MessageCardType
+    {
+        return $this->attachmentsAreExclusivelyVideoNotes()
+            ? MessageCardType::VideoNoteTray
+            : MessageCardType::StandardBubble;
+    }
+
+    /**
+     * Standard-bubble rows that are voice-only need a width floor so the card does not collapse.
+     */
+    public function usesStandardBubbleVoiceWidthFloor(): bool
+    {
+        return $this->cardType() === MessageCardType::StandardBubble
+            && $this->attachmentsAreExclusivelyVoiceNotes();
+    }
+
+    /**
+     * True when every attachment is a video note — UI can render circles outside the standard message card.
+     */
+    public function attachmentsAreExclusivelyVideoNotes(): bool
+    {
+        if (! $this->hasAttachments()) {
+            return false;
+        }
+
+        foreach ($this->attachments as $attachment) {
+            if (! $attachment instanceof AttachmentViewModel) {
+                return false;
+            }
+
+            if (! $attachment->isVideoNote()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * True when every attachment is a voice note — UI can render outside the standard message card.
+     */
+    public function attachmentsAreExclusivelyVoiceNotes(): bool
+    {
+        if (! $this->hasAttachments()) {
+            return false;
+        }
+
+        foreach ($this->attachments as $attachment) {
+            if (! $attachment instanceof AttachmentViewModel) {
+                return false;
+            }
+
+            if (! $attachment->isVoiceNote()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Sent time in a row below the video note (outside the ring) when there is no caption.
+     */
+    public function showVideoNoteInlineMeta(): bool
+    {
+        return $this->attachmentsAreExclusivelyVideoNotes()
+            && ! $this->hasBody()
+            && $this->sentAt !== null
+            && $this->sentAt !== '';
+    }
+
     public function dayBucket(): ?string
     {
         return ChatTimestamp::dayBucket($this->sentAt);
@@ -116,7 +211,7 @@ final readonly class MessageViewModel implements Wireable
     }
 
     /**
-     * @return array{id: int, body: string, sent_at: ?string, edited_at: ?string, sender_id: string, sender_name: string, is_me: bool, attachments: list<array{id: int, type: string, url: string, filename: string, mime_type: ?string, size: ?int}>, is_first_of_day: bool}
+     * @return array{id: int, body: string, sent_at: ?string, edited_at: ?string, sender_id: string, sender_name: string, is_me: bool, attachments: list<array{id: int, type: string, url: string, filename: string, mime_type: ?string, size: ?int}>, is_first_of_day: bool, read_receipt_display: string}
      */
     public function toArray(): array
     {
@@ -133,6 +228,7 @@ final readonly class MessageViewModel implements Wireable
                 $this->attachments,
             ),
             'is_first_of_day' => $this->isFirstOfDay,
+            'read_receipt_display' => $this->readReceiptDisplay,
         ];
     }
 

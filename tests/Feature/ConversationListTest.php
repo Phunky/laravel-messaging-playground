@@ -12,6 +12,7 @@ use Phunky\LaravelMessaging\Models\Conversation;
 use Phunky\LaravelMessaging\Services\MessagingService;
 use Phunky\LaravelMessagingReactions\Reaction;
 use Phunky\Models\User;
+use Phunky\Support\Chat\ChatTimestamp;
 use Tests\TestCase;
 
 class ConversationListTest extends TestCase
@@ -183,7 +184,7 @@ class ConversationListTest extends TestCase
         $component = Livewire::actingAs($alice)->test('chat.conversation-list');
         $row = collect($component->get('rows'))->firstWhere('conversation_id', (int) $conversation->id);
 
-        $this->assertMatchesRegularExpression('/^\d{1,2}:\d{2}\s[ap]m$/', $row['formatted_time']);
+        $this->assertMatchesRegularExpression('/^\d{1,2}:\d{2}\s[ap]m$/', ChatTimestamp::inbox($row['updated_at']));
     }
 
     public function test_timestamp_shows_yesterday_for_previous_day(): void
@@ -200,7 +201,7 @@ class ConversationListTest extends TestCase
         $component = Livewire::actingAs($alice)->test('chat.conversation-list');
         $row = collect($component->get('rows'))->firstWhere('conversation_id', (int) $conversation->id);
 
-        $this->assertSame('Yesterday', $row['formatted_time']);
+        $this->assertSame('Yesterday', ChatTimestamp::inbox($row['updated_at']));
     }
 
     public function test_timestamp_shows_day_name_within_last_week(): void
@@ -218,7 +219,7 @@ class ConversationListTest extends TestCase
         $row = collect($component->get('rows'))->firstWhere('conversation_id', (int) $conversation->id);
 
         $dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        $this->assertContains($row['formatted_time'], $dayNames);
+        $this->assertContains(ChatTimestamp::inbox($row['updated_at']), $dayNames);
     }
 
     public function test_timestamp_shows_full_date_for_older_messages(): void
@@ -239,7 +240,7 @@ class ConversationListTest extends TestCase
         $component = Livewire::actingAs($alice)->test('chat.conversation-list');
         $row = collect($component->get('rows'))->firstWhere('conversation_id', (int) $conversation->id);
 
-        $this->assertMatchesRegularExpression('#^\d{2}/\d{2}/\d{4}$#', $row['formatted_time']);
+        $this->assertMatchesRegularExpression('#^\d{2}/\d{2}/\d{4}$#', ChatTimestamp::inbox($row['updated_at']));
     }
 
     public function test_last_message_preview_shows_photo_for_image_only_message(): void
