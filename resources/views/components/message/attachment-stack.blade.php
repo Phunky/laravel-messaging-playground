@@ -21,7 +21,7 @@
 >
     @foreach (AttachmentViewModel::group($attachments) as $group)
         @if ($group['kind'] === AttachmentViewModel::GROUP_IMAGES)
-            <x-chat.message-type-images
+            <x-message.type.images
                 :items="$group['items']"
                 :variant="$variant"
                 :message-id="$messageId"
@@ -30,13 +30,13 @@
             @foreach ($group['items'] as $item)
                 @if ($item->hasUrl())
                     @if ($item->isVideoNote())
-                        <x-chat.message-type-video-note
+                        <x-message.type.video-note
                             :attachment="$item"
                             :variant="$variant"
                             :message-id="$messageId"
                         />
                     @else
-                        <x-chat.message-type-video
+                        <x-message.type.video
                             :attachment="$item"
                             :variant="$variant"
                             :message-id="$messageId"
@@ -45,10 +45,10 @@
                 @endif
             @endforeach
         @elseif ($group['kind'] === AttachmentViewModel::GROUP_VOICE)
-            <x-chat.message-type-voice :items="$group['items']" :variant="$variant" />
+            <x-message.type.voice :items="$group['items']" :variant="$variant" />
         @else
             @foreach ($group['items'] as $item)
-                <x-chat.message-type-document :attachment="$item" :variant="$variant" />
+                <x-message.type.document :attachment="$item" :variant="$variant" />
             @endforeach
         @endif
     @endforeach

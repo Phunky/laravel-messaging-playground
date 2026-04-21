@@ -18,7 +18,7 @@
                         class="h-full w-full object-cover"
                     />
                 @elseif ($attachment->canPreviewVideo() && $this->attachmentKind === 'video_note')
-                    <x-chat.video-note-circle-shell variant="mine" size="compact">
+                    <x-message.video-note-circle-shell variant="mine" size="compact">
                         <video
                             src="{{ $attachment->url() }}"
                             crossorigin="anonymous"
@@ -28,7 +28,7 @@
                             data-mime-type="{{ $attachment->videoPosterDataMimeType() }}"
                             class="chat-video-poster size-full object-cover"
                         ></video>
-                    </x-chat.video-note-circle-shell>
+                    </x-message.video-note-circle-shell>
                 @elseif ($attachment->canPreviewVideo())
                     <video
                         src="{{ $attachment->url() }}"

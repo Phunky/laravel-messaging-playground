@@ -19,7 +19,7 @@
             'bg-white/90 text-zinc-800 ring-zinc-300/80 dark:bg-zinc-900/75 dark:text-zinc-100 dark:ring-zinc-600/50' => ! $vm->isMe,
         ]) }}
     >
-        <x-chat.message-timestamp :vm="$vm" :include-edited="$includeEdited" />
+        <x-message.timestamp :vm="$vm" :include-edited="$includeEdited" />
         @if ($showTicks && $vm->isMe)
             @if ($readReceipt === 'read')
                 <span class="text-[0.6rem] leading-none tracking-tight text-sky-300" aria-hidden="true" title="{{ __('Read') }}">✓✓</span>

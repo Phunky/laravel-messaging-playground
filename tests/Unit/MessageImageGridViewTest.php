@@ -19,7 +19,7 @@ class MessageImageGridViewTest extends TestCase
             ];
         }
 
-        $html = view('components.chat.message-type-images', ['items' => $items, 'variant' => 'mine'])->render();
+        $html = view('components.message.type.images', ['items' => $items, 'variant' => 'mine'])->render();
 
         $this->assertStringContainsString('+1', $html);
         $this->assertStringContainsString('open-media-40-more', $html);
@@ -39,7 +39,7 @@ class MessageImageGridViewTest extends TestCase
             ];
         }
 
-        $html = view('components.chat.message-type-images', ['items' => $items, 'variant' => 'mine'])->render();
+        $html = view('components.message.type.images', ['items' => $items, 'variant' => 'mine'])->render();
 
         $this->assertStringContainsString('+2', $html);
         $this->assertStringContainsString('open-media-4-more', $html);
@@ -59,7 +59,7 @@ class MessageImageGridViewTest extends TestCase
             ];
         }
 
-        $html = view('components.chat.message-type-images', ['items' => $items, 'variant' => 'mine'])->render();
+        $html = view('components.message.type.images', ['items' => $items, 'variant' => 'mine'])->render();
 
         $this->assertStringNotContainsString('+1', $html);
         $this->assertStringNotContainsString('+2', $html);

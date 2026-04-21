@@ -37,10 +37,10 @@
         ])>
             @if ($vm->isMe)
                 <div class="flex w-full min-w-0 justify-end">
-                    <x-chat.message-context-menu tone="on_video_tray_outside" />
+                    <x-message.context-menu tone="on_video_tray_outside" />
                 </div>
             @elseif ($isGroup)
-                <x-chat.message-sender-label :name="$vm->senderName" />
+                <x-message.sender-label :name="$vm->senderName" />
             @endif
 
             @if ($conversationId !== null)
@@ -51,14 +51,14 @@
                         'mb-2' => $vm->hasBody(),
                     ])
                 >
-                    <x-chat.message-reaction-picker-island
+                    <x-message.reaction-picker-island
                         :message-id="$vm->id"
                         :conversation-id="$conversationId"
                         :message-alignment="$alignment"
                         :inline="true"
                     />
 
-                    <x-chat.message-attachment-stack
+                    <x-message.attachment-stack
                         class="shrink-0"
                         :attachments="$vm->attachments"
                         :message-id="$vm->id"
@@ -67,7 +67,7 @@
                     />
                 </div>
             @else
-                <x-chat.message-attachment-stack
+                <x-message.attachment-stack
                     @class([
                         'mb-2' => $vm->hasBody(),
                     ])
@@ -80,7 +80,7 @@
 
             @if ($vm->showVideoNoteInlineMeta())
                 <div class="flex w-full min-w-0 justify-end">
-                    <x-chat.message-sent-meta :vm="$vm" :include-edited="false" />
+                    <x-message.sent-meta :vm="$vm" :include-edited="false" />
                 </div>
             @endif
 
@@ -92,7 +92,7 @@
                         'bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-50' => ! $vm->isMe,
                     ])
                 >
-                    <x-chat.message-text-block :vm="$vm" />
+                    <x-message.text-block :vm="$vm" />
                 </div>
             @endif
         </div>
@@ -105,17 +105,17 @@
             ])
         >
             @if ($vm->isMe)
-                <x-chat.message-context-menu tone="on_mine_bubble" />
+                <x-message.context-menu tone="on_mine_bubble" />
             @elseif ($isGroup)
-                <x-chat.message-sender-label :name="$vm->senderName" />
+                <x-message.sender-label :name="$vm->senderName" />
             @endif
 
-            <x-chat.message-bubble-content :vm="$vm" />
+            <x-message.bubble-content :vm="$vm" />
         </div>
     @endif
 
     @if ($conversationId !== null)
-        <x-chat.message-reactions-footer
+        <x-message.reactions-footer
             :message-id="$vm->id"
             :conversation-id="$conversationId"
             :message-alignment="$alignment"

@@ -1,24 +1,24 @@
 <?php
 
-use Phunky\Actions\Chat\LoadConversationMediaForViewer;
-use Phunky\Livewire\Concerns\SerializesChatMessages;
-use Phunky\Livewire\Concerns\TracksOpenConversationWhispers;
-use Phunky\Models\User;
-use Phunky\Support\Chat\PendingAttachmentView;
-use Phunky\Support\MessageAttachmentTypeRegistry;
 use Illuminate\Validation\Rule;
-use Phunky\LaravelMessagingAttachments\Attachment as MessageAttachment;
-use Phunky\LaravelMessagingAttachments\AttachmentService;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use Phunky\Actions\Chat\LoadConversationMediaForViewer;
 use Phunky\LaravelMessaging\Exceptions\CannotMessageException;
-use Phunky\LaravelMessagingGroups\Group;
 use Phunky\LaravelMessaging\Models\Conversation;
 use Phunky\LaravelMessaging\Models\Message;
 use Phunky\LaravelMessaging\Services\MessagingService;
+use Phunky\LaravelMessagingAttachments\Attachment as MessageAttachment;
+use Phunky\LaravelMessagingAttachments\AttachmentService;
+use Phunky\LaravelMessagingGroups\Group;
+use Phunky\Livewire\Concerns\SerializesChatMessages;
+use Phunky\Livewire\Concerns\TracksOpenConversationWhispers;
+use Phunky\Models\User;
+use Phunky\Support\Chat\PendingAttachmentView;
+use Phunky\Support\MessageAttachmentTypeRegistry;
 
 new class extends Component
 {
@@ -825,11 +825,11 @@ JS);
             $this->newMessage = $savedBody;
             $this->pendingFiles = $savedFiles;
             $this->addError('newMessage', $e->getMessage());
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             if ($message instanceof Message) {
                 try {
                     $messaging->deleteMessage($message, $user);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                 }
             }
 
@@ -841,45 +841,3 @@ JS);
         }
     }
 };
-?>
-
-<div class="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
-    @include('livewire.chat.message-pane._empty')
-
-    <div
-        class="@if ($conversationId === null) hidden @endif flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-    >
-        @include('livewire.chat.message-pane._header')
-
-        <div class="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <div
-                id="chat-scroll-area"
-                class="flex min-h-0 flex-1 basis-0 flex-col overflow-y-auto overscroll-contain py-3"
-                x-data="{ ready: false }"
-                x-init="$nextTick(() => { ready = true })"
-            >
-                @foreach ($warmConversationIds as $cid)
-                    <div
-                        class="@if ((int) $conversationId !== (int) $cid) hidden @endif min-h-0"
-                        wire:key="warm-wrap-{{ $cid }}"
-                    >
-                        <livewire:chat.message-thread
-                            :conversation-id="$cid"
-                            :is-active="(int) $conversationId === (int) $cid"
-                            wire:key="message-thread-{{ $cid }}"
-                        />
-                    </div>
-                @endforeach
-            </div>
-
-            @include('livewire.chat.message-pane._edit-modal')
-            @include('livewire.chat.message-pane._delete-modal')
-
-            @if ($mediaViewerOpen)
-                <x-chat.conversation-media-viewer :items="$mediaViewerItems" :index="$mediaViewerIndex" />
-            @endif
-
-            @include('livewire.chat.message-pane._composer')
-        </div>
-    </div>
-</div>

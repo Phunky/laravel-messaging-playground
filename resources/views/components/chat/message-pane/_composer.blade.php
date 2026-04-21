@@ -1,7 +1,7 @@
 <div class="shrink-0 w-full pb-4 px-4">
     <div class="mx-auto w-full max-w-4xl">
         <form wire:submit="sendMessage">
-            @include('livewire.chat.message-pane._pending-attachments')
+            @include('components.chat.message-pane._pending-attachments')
             @error('pendingFiles.*')
                 <flux:text size="sm" class="mb-2 text-red-600 dark:text-red-400">{{ $message }}</flux:text>
             @enderror
@@ -35,9 +35,9 @@
                         errVideoUpload: @js(__('Could not upload the video note. Please try again.')),
                     })"
                 >
-                    @include('livewire.chat.message-pane._composer-input')
-                    @include('livewire.chat.message-pane._voice-recorder')
-                    @include('livewire.chat.message-pane._video-recorder')
+                    @include('components.chat.message-pane._composer-input')
+                    @include('components.chat.message-pane._voice-recorder')
+                    @include('components.chat.message-pane._video-recorder')
                 </div>
             </div>
             @error('newMessage')

@@ -4,7 +4,7 @@
     'messageAlignment',
 ])
 
-{{-- Thin wrapper: Livewire island lives in resources/views/livewire/chat/message-reactions-summary.blade.php --}}
+{{-- Thin wrapper: Livewire island lives in resources/views/components/chat/⚡message-reactions-summary.blade.php --}}
 
 <livewire:chat.message-reactions-summary
     :message-id="$messageId"

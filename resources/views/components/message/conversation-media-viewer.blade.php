@@ -6,7 +6,7 @@
 @use('Phunky\Support\Chat\ConversationMediaViewerItem')
 
 {{--
-    Presentational modal fed by the message-pane SFC (`mediaViewerItems`,
+    Presentational modal fed by the message-pane component (`mediaViewerItems`,
     `mediaViewerIndex`, plus `openMediaViewer` / `closeMediaViewer` actions).
 --}}
 

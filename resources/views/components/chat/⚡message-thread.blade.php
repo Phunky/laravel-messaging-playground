@@ -446,11 +446,11 @@ new class extends Component
 
     @if ($isActive && $recordingUsers !== [])
         <div class="my-3" wire:key="thread-recording-card-wrap-{{ $conversationId }}">
-            <x-chat.whisper-message-card :users="$recordingUsers" variant="recording" />
+            <x-whisper.message-card :users="$recordingUsers" variant="recording" />
         </div>
     @elseif ($isActive && $typingUsers !== [])
         <div class="my-3" wire:key="thread-typing-card-wrap-{{ $conversationId }}">
-            <x-chat.whisper-message-card :users="$typingUsers" variant="typing" />
+            <x-whisper.message-card :users="$typingUsers" variant="typing" />
         </div>
     @endif
 </div>

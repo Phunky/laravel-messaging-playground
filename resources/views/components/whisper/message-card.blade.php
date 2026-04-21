@@ -16,7 +16,7 @@
             class="relative min-w-0 max-w-full rounded-lg bg-zinc-200 px-3 py-2 text-sm text-zinc-900 dark:bg-zinc-700 dark:text-zinc-50"
         >
             <div class="flex items-center gap-1.5 text-sm italic text-zinc-600 dark:text-zinc-300" aria-live="polite">
-                <x-chat.whisper-leading :users="$users" :variant="$variant" layout="card" />
+                <x-whisper.leading :users="$users" :variant="$variant" layout="card" />
             </div>
         </div>
     </div>

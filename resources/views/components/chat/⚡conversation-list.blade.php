@@ -327,15 +327,15 @@ new class extends Component
                         @endif
                         @if (! empty($ctx['row']['updated_at']))
                             <flux:text size="xs" class="ml-auto shrink-0 text-zinc-400">
-                                <x-chat.message-timestamp :iso="$ctx['row']['updated_at']" preset="inbox" />
+                                <x-message.timestamp :iso="$ctx['row']['updated_at']" preset="inbox" />
                             </flux:text>
                         @endif
                     </div>
                     <div class="mt-0.5 flex items-center gap-2">
                         @if ($ctx['is_recording'])
-                            <x-chat.whisper-indicator :users="$ctx['recording_names']" variant="recording" scope="inbox" />
+                            <x-whisper.indicator :users="$ctx['recording_names']" variant="recording" scope="inbox" />
                         @elseif ($ctx['is_typing'])
-                            <x-chat.whisper-indicator :users="$ctx['typing_names']" variant="typing" scope="inbox" />
+                            <x-whisper.indicator :users="$ctx['typing_names']" variant="typing" scope="inbox" />
                         @elseif ($ctx['row']['subtitle'] !== '')
                             <flux:text size="sm" class="min-w-0 truncate text-zinc-500 dark:text-zinc-400">
                                 {{ $ctx['row']['subtitle'] }}

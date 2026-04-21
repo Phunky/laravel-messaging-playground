@@ -9,8 +9,8 @@ use Phunky\Support\DocumentAttachmentIcon;
 use Phunky\Support\MessageAttachmentTypeRegistry;
 
 /**
- * One attachment slot ready for rendering. Consumed by `message-type-*` Blade
- * components and `message-attachment-stack`.
+ * One attachment slot ready for rendering. Consumed by `message.type.*` Blade
+ * components and `message.attachment-stack`.
  */
 final readonly class AttachmentViewModel implements Wireable
 {
@@ -158,7 +158,7 @@ final readonly class AttachmentViewModel implements Wireable
      * Converts a run of image attachments into ready-to-render grid cells,
      * choosing grid spans and injecting the "+N" overflow count on the 4th
      * tile when more than four images are present. Consumed by
-     * `message-type-images`.
+     * `message.type.images`.
      *
      * @param  list<self|array{id: int|string, type: string, url: string, filename: string, mime_type: ?string, size: ?int}>  $items
      * @return list<array{attachment: self, span: string, overflow: int}>

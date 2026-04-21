@@ -33,7 +33,7 @@
             x-show="videoRecording"
             class="relative flex min-h-0 flex-1 flex-col items-center justify-center bg-zinc-950 bg-[radial-gradient(circle_at_50%_120%,rgba(16,185,129,0.08),transparent_55%)] p-4"
         >
-            <x-chat.video-note-circle-shell variant="mine" class="shadow-xl shadow-black/50">
+            <x-message.video-note-circle-shell variant="mine" class="shadow-xl shadow-black/50">
                 <video
                     x-ref="videoLivePreview"
                     class="size-full object-cover"
@@ -55,7 +55,7 @@
                     class="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 text-xs font-medium tabular-nums text-white drop-shadow-md"
                     x-text="formatVideoElapsed() + ' / ' + formatVideoMaxClock()"
                 ></div>
-            </x-chat.video-note-circle-shell>
+            </x-message.video-note-circle-shell>
         </div>
 
         {{-- Recorded clip review (same circular frame as the sent message) --}}
@@ -64,7 +64,7 @@
             x-cloak
             class="relative flex min-h-0 flex-1 flex-col items-center justify-center bg-zinc-950 bg-[radial-gradient(circle_at_50%_120%,rgba(16,185,129,0.08),transparent_55%)] p-4"
         >
-            <x-chat.video-note-circle-shell variant="mine" class="shadow-xl shadow-black/50">
+            <x-message.video-note-circle-shell variant="mine" class="shadow-xl shadow-black/50">
                 <video
                     x-ref="videoNotePreviewVideo"
                     x-bind:src="videoNotePreviewUrl"
@@ -100,7 +100,7 @@
                     class="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 text-xs font-medium tabular-nums text-white drop-shadow-md"
                     x-text="videoNotePreviewDurationLabel"
                 ></div>
-            </x-chat.video-note-circle-shell>
+            </x-message.video-note-circle-shell>
         </div>
 
         {{-- Footer: recording --}}

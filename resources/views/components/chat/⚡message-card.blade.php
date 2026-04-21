@@ -74,10 +74,10 @@ new class extends Component
                 size="xs"
             />
             <div class="min-w-0 flex-1">
-                @include('livewire.chat.message-card._bubble', ['vm' => $this->viewModel, 'isGroup' => $isGroup])
+                @include('components.chat.message-card._bubble', ['vm' => $this->viewModel, 'isGroup' => $isGroup])
             </div>
         </div>
     @else
-        @include('livewire.chat.message-card._bubble', ['vm' => $this->viewModel, 'isGroup' => $isGroup])
+        @include('components.chat.message-card._bubble', ['vm' => $this->viewModel, 'isGroup' => $isGroup])
     @endif
 </div>

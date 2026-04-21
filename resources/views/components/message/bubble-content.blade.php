@@ -7,7 +7,7 @@
 @endphp
 
 @if ($vm->hasAttachments())
-    <x-chat.message-attachment-stack
+    <x-message.attachment-stack
         class="mb-2"
         :attachments="$vm->attachments"
         :message-id="$vm->id"
@@ -16,4 +16,4 @@
     />
 @endif
 
-<x-chat.message-text-block :vm="$vm" />
+<x-message.text-block :vm="$vm" />

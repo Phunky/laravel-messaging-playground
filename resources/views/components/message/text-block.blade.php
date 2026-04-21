@@ -12,7 +12,7 @@
         <span class="whitespace-pre-wrap">{{ $vm->body }}</span>
 
         @if ($vm->sentAt !== null && $vm->sentAt !== '')
-            <x-chat.message-sent-meta
+            <x-message.sent-meta
                 :vm="$vm"
                 class="float-end ms-2 mt-1 max-w-[calc(100%-0.5rem)] shrink-0"
             />
@@ -20,6 +20,6 @@
     </div>
 @elseif ($vm->sentAt !== null && $vm->sentAt !== '')
     <div class="mt-1.5 flex w-full min-w-0 justify-end">
-        <x-chat.message-sent-meta :vm="$vm" class="shrink-0" />
+        <x-message.sent-meta :vm="$vm" class="shrink-0" />
     </div>
 @endif

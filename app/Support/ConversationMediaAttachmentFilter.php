@@ -5,7 +5,7 @@ namespace Phunky\Support;
 use Phunky\LaravelMessagingAttachments\Attachment as MessageAttachment;
 
 /**
- * Mirrors the grouping rules in {@see resources/views/components/chat/message-attachments.blade.php}
+ * Mirrors the grouping rules in {@see resources/views/components/message/attachments.blade.php}
  * for image vs video slots so the conversation media viewer stays consistent with inline bubbles.
  */
 final class ConversationMediaAttachmentFilter

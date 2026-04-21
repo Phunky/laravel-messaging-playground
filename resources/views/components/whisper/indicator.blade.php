@@ -19,5 +19,5 @@
     ])
     aria-live="polite"
 >
-    <x-chat.whisper-leading :users="$users" :variant="$variant" :scope="$scope" layout="indicator" />
+    <x-whisper.leading :users="$users" :variant="$variant" :scope="$scope" layout="indicator" />
 </span>

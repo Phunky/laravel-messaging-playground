@@ -8,7 +8,7 @@
 
 @use('Illuminate\Support\Js')
 
-<x-chat.video-note-circle-shell
+<x-message.video-note-circle-shell
     x-data="chatVideoNoteInline"
     :variant="$variant"
 >
@@ -54,4 +54,4 @@
             title="{{ __('Open in media viewer') }}"
         />
     </div>
-</x-chat.video-note-circle-shell>
+</x-message.video-note-circle-shell>
