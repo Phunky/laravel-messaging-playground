@@ -190,7 +190,7 @@ class MessagingTypingIndicatorTest extends TestCase
             ->assertSet('recordingUsers', [
                 ['id' => (int) $bob->id, 'name' => $bob->name],
             ])
-            ->assertSee(__(':name is recording a voice note…', ['name' => $bob->name]));
+            ->assertSee(__(':name is recording…', ['name' => $bob->name]));
     }
 
     public function test_message_thread_renders_typing_card_for_the_open_conversation(): void
@@ -224,7 +224,7 @@ class MessagingTypingIndicatorTest extends TestCase
             ->dispatch('messaging-recording-updated', conversationId: (int) $conversation->id, recordingUsers: [
                 ['id' => $bob->id, 'name' => $bob->name],
             ])
-            ->assertSee(__(':name is recording a voice note…', ['name' => $bob->name]))
+            ->assertSee(__(':name is recording…', ['name' => $bob->name]))
             ->assertDontSee(__(':name is typing…', ['name' => $bob->name]));
     }
 
@@ -302,7 +302,7 @@ class MessagingTypingIndicatorTest extends TestCase
             ->assertSet('recordingByConversation', [
                 (int) $conversation->id => [$bob->name],
             ])
-            ->assertSee(__(':name is recording a voice note…', ['name' => $bob->name]));
+            ->assertSee(__(':name is recording…', ['name' => $bob->name]));
     }
 
     public function test_conversation_list_recording_takes_priority_over_typing(): void
@@ -323,7 +323,7 @@ class MessagingTypingIndicatorTest extends TestCase
             ]);
 
         $component
-            ->assertSee(__(':name is recording a voice note…', ['name' => $bob->name]))
+            ->assertSee(__(':name is recording…', ['name' => $bob->name]))
             ->assertDontSee(__(':name is typing…', ['name' => $bob->name]));
     }
 

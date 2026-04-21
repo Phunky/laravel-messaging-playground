@@ -3,10 +3,11 @@
     'index' => 0,
 ])
 
+@use('Phunky\Support\Chat\ConversationMediaViewerItem')
+
 {{--
     Presentational modal fed by the message-pane SFC (`mediaViewerItems`,
     `mediaViewerIndex`, plus `openMediaViewer` / `closeMediaViewer` actions).
-    All branching uses inline expressions or @class directives, no @php blocks.
 --}}
 
 @if (($items[$index] ?? null) !== null)
@@ -73,10 +74,12 @@
                         <video
                             wire:key="media-viewer-main-{{ $items[$index]['id'] }}"
                             src="{{ $items[$index]['url'] }}"
+                            crossorigin="anonymous"
                             controls
                             playsinline
-                            preload="metadata"
-                            class="max-h-[min(85vh,calc(100vh-11rem))] w-full max-w-full object-contain"
+                            preload="{{ ConversationMediaViewerItem::videoPosterPreload($items[$index]) }}"
+                            data-mime-type="{{ ConversationMediaViewerItem::videoPosterDataMimeType($items[$index]) }}"
+                            class="chat-video-poster max-h-[min(85vh,calc(100vh-11rem))] w-full max-w-full object-contain"
                         ></video>
                     @else
                         <img
@@ -108,10 +111,12 @@
                         @if (($item['type'] ?? '') === 'video')
                             <video
                                 src="{{ $item['url'] }}"
+                                crossorigin="anonymous"
                                 muted
                                 playsinline
-                                preload="metadata"
-                                class="h-full w-full object-cover"
+                                preload="{{ ConversationMediaViewerItem::videoPosterPreload($item) }}"
+                                data-mime-type="{{ ConversationMediaViewerItem::videoPosterDataMimeType($item) }}"
+                                class="chat-video-poster h-full w-full object-cover"
                             ></video>
                         @else
                             <img

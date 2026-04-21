@@ -3,10 +3,11 @@
         @foreach ($this->pendingAttachments as $index => $attachment)
             <div
                 @class([
-                    'relative overflow-hidden rounded-md border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800',
+                    'relative overflow-hidden',
                     'shrink-0' => ! $attachment->isAudio(),
                     'h-16 w-16' => ! $attachment->isAudio(),
                     'min-h-16 w-full max-w-xs px-2 py-1.5' => $attachment->isAudio(),
+                    'rounded-md border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800' => ! $attachment->isAudio() && ! ($attachment->canPreviewVideo() && $this->attachmentKind === 'video_note'),
                 ])
                 wire:key="pending-file-{{ $index }}"
             >
@@ -16,13 +17,27 @@
                         alt=""
                         class="h-full w-full object-cover"
                     />
+                @elseif ($attachment->canPreviewVideo() && $this->attachmentKind === 'video_note')
+                    <x-chat.video-note-circle-shell variant="mine" size="compact">
+                        <video
+                            src="{{ $attachment->url() }}"
+                            crossorigin="anonymous"
+                            muted
+                            playsinline
+                            preload="{{ $attachment->videoPosterPreload() }}"
+                            data-mime-type="{{ $attachment->videoPosterDataMimeType() }}"
+                            class="chat-video-poster size-full object-cover"
+                        ></video>
+                    </x-chat.video-note-circle-shell>
                 @elseif ($attachment->canPreviewVideo())
                     <video
                         src="{{ $attachment->url() }}"
+                        crossorigin="anonymous"
                         muted
                         playsinline
-                        preload="metadata"
-                        class="h-full w-full object-cover"
+                        preload="{{ $attachment->videoPosterPreload() }}"
+                        data-mime-type="{{ $attachment->videoPosterDataMimeType() }}"
+                        class="chat-video-poster h-full w-full object-cover"
                     ></video>
                 @elseif ($attachment->isImageOrVideoWithoutPreview())
                     <div class="flex h-full w-full flex-col items-center justify-center gap-0.5 p-1 text-center">

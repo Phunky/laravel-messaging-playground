@@ -1,5 +1,8 @@
+import { videoNoteMixin } from './chat-video-note';
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('chatVoiceNote', (config) => ({
+        ...videoNoteMixin(config),
         ...config,
         conversationId: Number(config?.conversationId) || null,
         recording: false,
@@ -39,6 +42,7 @@ document.addEventListener('alpine:init', () => {
 
         destroy() {
             this.stopRecordingWhisper();
+            this.cleanupVideoNoteResources();
         },
 
         recordingIdentity() {
@@ -71,7 +75,7 @@ document.addEventListener('alpine:init', () => {
             }
 
             this.recordingHeartbeat = window.setInterval(() => {
-                if (! this.recording) {
+                if (! this.recording && ! this.videoRecording) {
                     this.stopRecordingWhisper();
 
                     return;
@@ -135,6 +139,10 @@ document.addEventListener('alpine:init', () => {
 
         toggle() {
             if (this.processing) {
+                return;
+            }
+
+            if (this.videoRecording || this.videoNotePreview) {
                 return;
             }
 
@@ -444,6 +452,10 @@ document.addEventListener('alpine:init', () => {
             const $wire = this.$lw();
 
             if (! $wire) {
+                return;
+            }
+
+            if (this.videoRecording || this.videoNotePreview) {
                 return;
             }
 

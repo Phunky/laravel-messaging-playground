@@ -29,7 +29,7 @@ final class ConversationMediaAttachmentFilter
             return false;
         }
 
-        if (! in_array($attachment->type, ['image', 'video'], true)) {
+        if (! in_array($attachment->type, ['image', 'video', 'video_note'], true)) {
             return false;
         }
 
@@ -39,7 +39,7 @@ final class ConversationMediaAttachmentFilter
         $isImageSlot = $mediaType === 'image'
             && ($mime === '' || str_starts_with($mime, 'image/'))
             && ! $isLegacyVideoAsImage;
-        $isVideoSlot = ($mediaType === 'video' && ($mime === '' || str_starts_with($mime, 'video/')))
+        $isVideoSlot = (in_array($mediaType, ['video', 'video_note'], true) && ($mime === '' || str_starts_with($mime, 'video/')))
             || $isLegacyVideoAsImage;
 
         return $isImageSlot || $isVideoSlot;
@@ -53,7 +53,7 @@ final class ConversationMediaAttachmentFilter
         $mime = (string) ($attachment->mime_type ?? '');
         $isLegacyVideoAsImage = $attachment->type === 'image' && str_starts_with($mime, 'video/');
 
-        if ($attachment->type === 'video' || $isLegacyVideoAsImage) {
+        if (in_array($attachment->type, ['video', 'video_note'], true) || $isLegacyVideoAsImage) {
             return 'video';
         }
 

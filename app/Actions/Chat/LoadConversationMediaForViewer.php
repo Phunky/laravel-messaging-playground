@@ -14,7 +14,7 @@ final class LoadConversationMediaForViewer
     ) {}
 
     /**
-     * @return list<array{id: int, type: string, url: string, mime_type: ?string, filename: string, message_id: int}>
+     * @return list<array{id: int, type: string, attachment_type: string, url: string, mime_type: ?string, filename: string, message_id: int}>
      */
     public function __invoke(User $user, int $conversationId, ?int $messageId = null): array
     {
@@ -32,7 +32,7 @@ final class LoadConversationMediaForViewer
             ->select("{$attachmentsTable}.*")
             ->join($messagesTable, "{$messagesTable}.id", '=', "{$attachmentsTable}.message_id")
             ->where("{$attachmentsTable}.conversation_id", $conversationId)
-            ->whereIn("{$attachmentsTable}.type", ['image', 'video']);
+            ->whereIn("{$attachmentsTable}.type", ['image', 'video', 'video_note']);
 
         if ($messageId !== null) {
             $query->where("{$attachmentsTable}.message_id", $messageId);
@@ -62,6 +62,7 @@ final class LoadConversationMediaForViewer
             $out[] = [
                 'id' => (int) $attachment->id,
                 'type' => ConversationMediaAttachmentFilter::viewerDisplayType($attachment),
+                'attachment_type' => (string) $attachment->type,
                 'url' => ($this->resolveAttachmentDisplayUrl)($attachment),
                 'mime_type' => $attachment->mime_type,
                 'filename' => $attachment->filename,

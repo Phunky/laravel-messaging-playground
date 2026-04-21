@@ -67,4 +67,18 @@ final readonly class PendingAttachmentView
     {
         return ($this->isImage() || $this->isVideo()) && ! $this->canPreview();
     }
+
+    public function videoPosterPreload(): string
+    {
+        $mime = $this->mime();
+
+        return VideoPosterSettings::preload($mime === '' ? null : $mime, null);
+    }
+
+    public function videoPosterDataMimeType(): string
+    {
+        $mime = $this->mime();
+
+        return VideoPosterSettings::dataMimeTypeAttribute($mime === '' ? null : $mime);
+    }
 }

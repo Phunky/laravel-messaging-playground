@@ -45,7 +45,7 @@ final class ConversationListMessagePreview
         }
 
         $parts = [];
-        foreach (['image', 'video', 'voice_note', 'document'] as $type) {
+        foreach (['image', 'video', 'video_note', 'voice_note', 'document'] as $type) {
             $n = $counts[$type] ?? 0;
             if ($n < 1) {
                 continue;
@@ -53,6 +53,7 @@ final class ConversationListMessagePreview
             $parts[] = match ($type) {
                 'image' => $n === 1 ? __('Photo') : __(':count photos', ['count' => $n]),
                 'video' => $n === 1 ? __('Video') : __(':count videos', ['count' => $n]),
+                'video_note' => $n === 1 ? __('Video note') : __(':count video notes', ['count' => $n]),
                 'voice_note' => $n === 1 ? __('Voice message') : __(':count voice messages', ['count' => $n]),
                 'document' => $n === 1 ? __('Document') : __(':count documents', ['count' => $n]),
                 default => '',

@@ -241,7 +241,7 @@ final readonly class AttachmentViewModel implements Wireable
             return false;
         }
 
-        if ($this->type === 'video') {
+        if ($this->type === 'video' || $this->type === 'video_note') {
             return $this->mimeType === null || str_starts_with($this->mimeType, 'video/');
         }
 
@@ -251,6 +251,11 @@ final readonly class AttachmentViewModel implements Wireable
     public function isVoiceNote(): bool
     {
         return $this->type === 'voice_note' && $this->isKnownKind() && $this->hasUrl();
+    }
+
+    public function isVideoNote(): bool
+    {
+        return $this->type === 'video_note' && $this->isKnownKind() && $this->hasUrl();
     }
 
     public function isDocument(): bool
@@ -313,6 +318,16 @@ final readonly class AttachmentViewModel implements Wireable
     public function downloadFilename(): ?string
     {
         return $this->filename !== '' ? Str::ascii($this->filename) : null;
+    }
+
+    public function videoPosterPreload(): string
+    {
+        return VideoPosterSettings::preload($this->mimeType, $this->type);
+    }
+
+    public function videoPosterDataMimeType(): string
+    {
+        return VideoPosterSettings::dataMimeTypeAttribute($this->mimeType);
     }
 
     /**

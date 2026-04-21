@@ -430,6 +430,36 @@ class MessagePaneTest extends TestCase
         $this->assertSame($expectedSize, $row->size ?? null);
     }
 
+    public function test_user_can_send_message_with_video_note_attachment(): void
+    {
+        Config::set('messaging.media_disk', 's3');
+        Storage::fake('s3');
+
+        $alice = User::factory()->create();
+        $bob = User::factory()->create();
+        $messaging = app(MessagingService::class);
+        [$conversation] = $messaging->findOrCreateConversation($alice, $bob);
+
+        $file = UploadedFile::fake()->create('video-note.webm', 800, 'video/webm');
+        $expectedSize = $file->getSize();
+
+        Livewire::actingAs($alice)
+            ->test('chat.message-pane')
+            ->set('conversationId', (int) $conversation->id)
+            ->set('attachmentKind', 'video_note')
+            ->set('pendingFiles', [$file])
+            ->set('newMessage', '')
+            ->call('sendMessage')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, Attachment::query()->count());
+
+        $row = Attachment::query()->firstOrFail();
+        $this->assertSame('video_note', $row->type);
+        Storage::disk('s3')->assertExists($row->path);
+        $this->assertSame($expectedSize, $row->size ?? null);
+    }
+
     public function test_prepare_upload_clears_staged_files_when_switching_attachment_kind(): void
     {
         $alice = User::factory()->create();

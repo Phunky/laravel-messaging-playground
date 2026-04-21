@@ -3,8 +3,9 @@
 namespace Phunky\Support\Chat;
 
 /**
- * Builds the translated "{name} is typing…" / "{name} is recording a voice
- * note…" labels shared by the inbox row indicator and the in-thread card.
+ * Builds the translated "{name} is typing…" / "{name} is recording…" labels
+ * shared by the inbox row indicator and the in-thread card (voice or video
+ * notes use the same presence whisper).
  * The `match(count($names))` branches used to live inline in blade.
  */
 final class WhisperLabel
@@ -33,9 +34,9 @@ final class WhisperLabel
     {
         return match (count($names)) {
             0 => '',
-            1 => __(':name is recording a voice note…', ['name' => $names[0]]),
-            2 => __(':a and :b are recording voice notes…', ['a' => $names[0], 'b' => $names[1]]),
-            default => __('Several people are recording voice notes…'),
+            1 => __(':name is recording…', ['name' => $names[0]]),
+            2 => __(':a and :b are recording…', ['a' => $names[0], 'b' => $names[1]]),
+            default => __('Several people are recording…'),
         };
     }
 

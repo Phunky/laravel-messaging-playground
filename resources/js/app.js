@@ -2,8 +2,10 @@ import './bootstrap';
 import './chat-message-long-press';
 import './chat-scroll';
 import './chat-voice-note';
+import './chat-video-poster';
 import './chat-messaging-echo';
 import './chat-typing';
+import './chat-video-note-inline';
 
 document.addEventListener('livewire:initialized', () => {
     if (window.__chatScrollIslandHooksRegistered) {

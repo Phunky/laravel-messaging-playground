@@ -53,6 +53,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Video note recording (in-app camera)
+    |--------------------------------------------------------------------------
+    |
+    | Maximum length for a single recorded video note clip (browser capture).
+    |
+    */
+    'video_note_max_record_seconds' => max(5, min(600, (int) env('MESSAGING_VIDEO_NOTE_MAX_RECORD_SECONDS', 60))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Message attachment kinds (stored as media `type`)
     |--------------------------------------------------------------------------
     |
@@ -93,6 +103,16 @@ return [
             'accept' => 'audio/webm,audio/mp4,audio/mpeg,audio/ogg,audio/wav,.webm,.m4a,.mp3,.ogg,.wav',
             'max_files' => 1,
             'rules' => ['file', 'mimes:webm,weba,m4a,mp3,ogg,wav,mp4', 'max:8192'],
+        ],
+        'video_note' => [
+            'label' => 'Video note',
+            'accept' => 'video/webm,video/mp4,video/quicktime,video/ogg,.webm,.mp4,.mov',
+            'max_files' => 1,
+            'rules' => [
+                'file',
+                'mimes:webm,mp4,mov',
+                'max:16384',
+            ],
         ],
     ],
 

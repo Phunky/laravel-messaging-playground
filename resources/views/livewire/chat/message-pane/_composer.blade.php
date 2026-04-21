@@ -8,6 +8,9 @@
             @if ($voiceNoteError !== '')
                 <flux:text size="sm" class="mb-2 text-red-600 dark:text-red-400">{{ $voiceNoteError }}</flux:text>
             @endif
+            @if ($videoNoteError !== '')
+                <flux:text size="sm" class="mb-2 text-red-600 dark:text-red-400">{{ $videoNoteError }}</flux:text>
+            @endif
 
             <div class="w-full">
                 <input
@@ -23,13 +26,18 @@
                     class="w-full"
                     x-data="chatVoiceNote({
                         conversationId: {{ (int) ($conversationId ?? 0) }},
+                        maxVideoRecordSeconds: {{ (int) config('messaging.video_note_max_record_seconds', 60) }},
                         errUnsupported: @js(__('Microphone recording is not supported in this browser.')),
                         errPermission: @js(__('Microphone permission was denied.')),
                         errUpload: @js(__('Could not upload the voice note. Please try again.')),
+                        errVideoUnsupported: @js(__('Video recording is not supported in this browser.')),
+                        errVideoPermission: @js(__('Camera or microphone permission was denied.')),
+                        errVideoUpload: @js(__('Could not upload the video note. Please try again.')),
                     })"
                 >
                     @include('livewire.chat.message-pane._composer-input')
                     @include('livewire.chat.message-pane._voice-recorder')
+                    @include('livewire.chat.message-pane._video-recorder')
                 </div>
             </div>
             @error('newMessage')

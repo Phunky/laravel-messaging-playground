@@ -72,6 +72,33 @@ class AttachmentViewModelTest extends TestCase
         $this->assertTrue($legacyVideo->isVideoSlot());
     }
 
+    public function test_video_note_type_is_video_slot(): void
+    {
+        $vm = AttachmentViewModel::fromArray($this->raw([
+            'type' => 'video_note',
+            'mime_type' => 'video/webm',
+            'url' => 'https://cdn.test/n.webm',
+            'filename' => 'n.webm',
+        ]));
+
+        $this->assertTrue($vm->isVideoSlot());
+        $this->assertTrue($vm->isVideoNote());
+        $this->assertFalse($vm->isVoiceNote());
+    }
+
+    public function test_regular_video_is_not_video_note(): void
+    {
+        $vm = AttachmentViewModel::fromArray($this->raw([
+            'type' => 'video',
+            'mime_type' => 'video/mp4',
+            'url' => 'https://cdn.test/v.mp4',
+            'filename' => 'v.mp4',
+        ]));
+
+        $this->assertTrue($vm->isVideoSlot());
+        $this->assertFalse($vm->isVideoNote());
+    }
+
     public function test_group_splits_images_videos_voice_and_documents(): void
     {
         $rows = [

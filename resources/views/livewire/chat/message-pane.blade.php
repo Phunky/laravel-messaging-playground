@@ -76,6 +76,11 @@ new class extends Component
     public string $voiceNoteError = '';
 
     /**
+     * Inline error for video note recording (set from Alpine / server).
+     */
+    public string $videoNoteError = '';
+
+    /**
      * When true, staged attachment chips stay hidden (voice note sends immediately after upload).
      */
     public bool $suppressPendingAttachmentPreview = false;
@@ -166,6 +171,7 @@ new class extends Component
         $this->attachmentKind = MessageAttachmentTypeRegistry::defaultKind();
         $this->attachmentAccept = MessageAttachmentTypeRegistry::accept($this->attachmentKind);
         $this->voiceNoteError = '';
+        $this->videoNoteError = '';
         $this->suppressPendingAttachmentPreview = false;
     }
 
@@ -193,6 +199,31 @@ new class extends Component
         $this->suppressPendingAttachmentPreview = false;
     }
 
+    /**
+     * Prepare a video-note upload (hides the composer chip) right before {@see sendMessage()}
+     * after the user confirms on the client preview screen.
+     */
+    public function prepareVideoNoteForImmediateSend(): void
+    {
+        if (! MessageAttachmentTypeRegistry::has('video_note')) {
+            return;
+        }
+
+        $this->suppressPendingAttachmentPreview = true;
+        $this->prepareUpload('video_note');
+    }
+
+    public function clearVideoNoteError(): void
+    {
+        $this->videoNoteError = '';
+    }
+
+    public function setVideoNoteError(string $message): void
+    {
+        $this->videoNoteError = $message;
+        $this->suppressPendingAttachmentPreview = false;
+    }
+
     public function prepareUpload(string $kind): void
     {
         if (! MessageAttachmentTypeRegistry::has($kind)) {
@@ -203,6 +234,7 @@ new class extends Component
         $this->attachmentKind = $kind;
         $this->attachmentAccept = MessageAttachmentTypeRegistry::accept($kind);
         $this->voiceNoteError = '';
+        $this->videoNoteError = '';
         $this->pendingFilesInputKey++;
         $this->resetValidation();
     }
@@ -249,6 +281,7 @@ new class extends Component
         $this->newMessage = '';
         $this->pendingFiles = [];
         $this->voiceNoteError = '';
+        $this->videoNoteError = '';
         $this->resetAttachmentPickerState();
         $this->pendingFilesInputKey++;
         $this->editingMessageId = null;
@@ -497,7 +530,7 @@ JS);
 
         $this->conversationHasMedia = MessageAttachment::query()
             ->where('conversation_id', $this->conversationId)
-            ->whereIn('type', ['image', 'video'])
+            ->whereIn('type', ['image', 'video', 'video_note'])
             ->exists();
     }
 
@@ -768,7 +801,7 @@ JS);
             $this->resetAttachmentPickerState();
             $this->pendingFilesInputKey++;
 
-            if ($attachmentRows !== [] && in_array($this->attachmentKind, ['image', 'video'], true)) {
+            if ($attachmentRows !== [] && in_array($this->attachmentKind, ['image', 'video', 'video_note'], true)) {
                 $this->conversationHasMedia = true;
             }
 
