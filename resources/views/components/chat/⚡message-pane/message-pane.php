@@ -6,8 +6,11 @@ use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use Phunky\Actions\Chat\DeleteChatMessage;
+use Phunky\Actions\Chat\EditChatMessage;
 use Phunky\Actions\Chat\LoadConversationMediaForViewer;
-use Phunky\LaravelMessaging\Exceptions\CannotMessageException;
+use Phunky\Actions\Chat\MarkConversationRead;
+use Phunky\Actions\Chat\SendChatMessage;
 use Phunky\LaravelMessaging\Models\Conversation;
 use Phunky\LaravelMessaging\Models\Message;
 use Phunky\LaravelMessaging\Services\MessagingService;
@@ -17,6 +20,7 @@ use Phunky\LaravelMessagingGroups\Group;
 use Phunky\Livewire\Concerns\SerializesChatMessages;
 use Phunky\Livewire\Concerns\TracksOpenConversationWhispers;
 use Phunky\Models\User;
+use Phunky\Support\Chat\ChatMessageSerializer;
 use Phunky\Support\Chat\PendingAttachmentView;
 use Phunky\Support\MessageAttachmentTypeRegistry;
 
@@ -333,16 +337,7 @@ JS);
             return;
         }
 
-        $conversation = Conversation::query()->find($this->conversationId);
-        if (! $conversation instanceof Conversation) {
-            return;
-        }
-
-        if (! $user->conversations()->whereKey($this->conversationId)->exists()) {
-            return;
-        }
-
-        $messaging->markAllRead($conversation, $user);
+        app(MarkConversationRead::class)($user, (int) $this->conversationId);
     }
 
     /**
@@ -350,10 +345,12 @@ JS);
      */
     protected function serializeMessageForDispatch(Message $message): array
     {
-        $conversation = Conversation::query()->find($message->conversation_id);
-        $rows = $this->hydrateReadReceipts([$this->serializeMessage($message)], $conversation);
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            throw new RuntimeException('Chat message dispatch requires an authenticated user.');
+        }
 
-        return $rows[0] ?? $this->serializeMessage($message);
+        return app(ChatMessageSerializer::class)->serializeForDispatch($message, $user, null);
     }
 
     #[On('messaging-remote-message-sent')]
@@ -653,22 +650,28 @@ JS);
             return;
         }
 
-        try {
-            $fresh = $messaging->editMessage($message, $user, $this->editMessageBody);
-            $fresh->load(['messageable', 'attachments']);
-            $serialized = $this->serializeMessageForDispatch($fresh);
+        $result = app(EditChatMessage::class)(
+            $user,
+            (int) $this->conversationId,
+            (int) $this->editingMessageId,
+            $this->editMessageBody,
+            $messaging,
+        );
 
-            $this->dispatch(
-                'chat-message-replaced',
-                conversationId: (int) $fresh->conversation_id,
-                message: $serialized,
-            );
+        if (! $result['ok']) {
+            $this->addError('editMessageBody', $result['error']);
 
-            $this->cancelEdit();
-            $this->dispatch('conversation-updated');
-        } catch (CannotMessageException $e) {
-            $this->addError('editMessageBody', $e->getMessage());
+            return;
         }
+
+        $this->dispatch(
+            'chat-message-replaced',
+            conversationId: (int) $this->conversationId,
+            message: $result['message'],
+        );
+
+        $this->cancelEdit();
+        $this->dispatch('conversation-updated');
     }
 
     public function deleteMessage(MessagingService $messaging, int $messageId): void
@@ -691,24 +694,31 @@ JS);
             return;
         }
 
-        try {
-            $messaging->deleteMessage($message, $user);
+        $result = app(DeleteChatMessage::class)(
+            $user,
+            (int) $this->conversationId,
+            $messageId,
+            $messaging,
+        );
 
-            $this->dispatch(
-                'chat-message-removed',
-                conversationId: (int) $this->conversationId,
-                messageId: $messageId,
-            );
+        if (! $result['ok']) {
+            $this->addError('message_delete', $result['error']);
 
-            if ($this->editingMessageId === $messageId) {
-                $this->cancelEdit();
-            }
-
-            $this->dispatch('conversation-updated');
-            $this->refreshConversationHasMediaFlag();
-        } catch (CannotMessageException $e) {
-            $this->addError('message_delete', $e->getMessage());
+            return;
         }
+
+        $this->dispatch(
+            'chat-message-removed',
+            conversationId: (int) $this->conversationId,
+            messageId: $messageId,
+        );
+
+        if ($this->editingMessageId === $messageId) {
+            $this->cancelEdit();
+        }
+
+        $this->dispatch('conversation-updated');
+        $this->refreshConversationHasMediaFlag();
     }
 
     public function removePendingFile(int $index): void
@@ -756,88 +766,47 @@ JS);
             return;
         }
 
-        $conversation = Conversation::query()->find($this->conversationId);
-        if (! $conversation instanceof Conversation) {
-            return;
-        }
-
         $savedBody = $this->newMessage;
         $savedFiles = $this->pendingFiles;
 
-        $message = null;
+        $result = app(SendChatMessage::class)(
+            $user,
+            (int) $this->conversationId,
+            (string) $this->newMessage,
+            (string) $this->attachmentKind,
+            array_values($files),
+            $messaging,
+            $attachmentService,
+        );
 
-        try {
-            $message = $messaging->sendMessage($conversation, $user, $body);
-
-            $diskName = config('messaging.media_disk');
-            $attachmentRows = [];
-
-            foreach ($files as $file) {
-                if (! $file instanceof TemporaryUploadedFile) {
-                    continue;
-                }
-
-                $directory = sprintf(
-                    'messaging/%s/%s',
-                    $conversation->getKey(),
-                    $message->getKey(),
-                );
-
-                $storedPath = $file->store($directory, $diskName);
-
-                $attachmentRows[] = [
-                    'type' => $this->attachmentKind,
-                    'path' => $storedPath,
-                    'filename' => $file->getClientOriginalName(),
-                    'disk' => $diskName,
-                    'mime_type' => $file->getMimeType(),
-                    'size' => $file->getSize(),
-                ];
-            }
-
-            if ($attachmentRows !== []) {
-                $attachmentService->attachMany($message, $user, $attachmentRows);
-            }
-
-            $message->load(['messageable', 'attachments']);
-
-            $this->dispatch(
-                'chat-message-appended',
-                conversationId: (int) $conversation->getKey(),
-                message: $this->serializeMessageForDispatch($message),
-            );
-
-            $this->newMessage = '';
-            $this->pendingFiles = [];
-            $this->resetAttachmentPickerState();
-            $this->pendingFilesInputKey++;
-
-            if ($attachmentRows !== [] && in_array($this->attachmentKind, ['image', 'video', 'video_note'], true)) {
-                $this->conversationHasMedia = true;
-            }
-
-            $this->markConversationDisplayedAsRead($messaging);
-
-            $this->dispatch('conversation-updated');
-            $this->stabilizeChatScroll();
-        } catch (CannotMessageException $e) {
+        if (! $result['ok']) {
             $this->suppressPendingAttachmentPreview = false;
             $this->newMessage = $savedBody;
             $this->pendingFiles = $savedFiles;
-            $this->addError('newMessage', $e->getMessage());
-        } catch (Throwable $e) {
-            if ($message instanceof Message) {
-                try {
-                    $messaging->deleteMessage($message, $user);
-                } catch (Throwable) {
-                }
-            }
+            $this->addError('newMessage', $result['error']);
 
-            report($e);
-            $this->suppressPendingAttachmentPreview = false;
-            $this->newMessage = $savedBody;
-            $this->pendingFiles = $savedFiles;
-            $this->addError('newMessage', __('Could not send your message. Please try again.'));
+            return;
         }
+
+        $this->dispatch(
+            'chat-message-appended',
+            conversationId: (int) $this->conversationId,
+            message: $result['message'],
+        );
+
+        $this->newMessage = '';
+        $this->pendingFiles = [];
+        $this->resetAttachmentPickerState();
+        $this->pendingFilesInputKey++;
+
+        $attachmentRows = $result['message']['attachments'] ?? [];
+        if ($attachmentRows !== [] && in_array($this->attachmentKind, ['image', 'video', 'video_note'], true)) {
+            $this->conversationHasMedia = true;
+        }
+
+        $this->markConversationDisplayedAsRead($messaging);
+
+        $this->dispatch('conversation-updated');
+        $this->stabilizeChatScroll();
     }
 };

@@ -1,9 +1,9 @@
 <?php
 
+use Phunky\Actions\Chat\ListThreadMessages;
 use Phunky\Livewire\Concerns\SerializesChatMessages;
 use Phunky\Models\User;
 use Phunky\Support\Chat\MessageViewModel;
-use Illuminate\Pagination\Cursor;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -107,17 +107,13 @@ new class extends Component
             return;
         }
 
-        $conversation = Conversation::query()->find($this->conversationId);
-        if (! $conversation instanceof Conversation) {
+        $user = auth()->user();
+        if (! $user instanceof User) {
             return;
         }
 
-        $query = $conversation->messages()->with(['messageable', 'attachments'])->reorder()->latest('sent_at')->latest('id');
-
-        $page = $query->cursorPaginate(50, ['*'], 'cursor', Cursor::fromEncoded($this->messagesCursor));
-
-        $chunk = collect($page->items())->map(fn (Message $m) => $this->serializeMessage($m))->values()->all();
-        $chunk = $this->hydrateReadReceipts($chunk, $conversation);
+        $data = app(ListThreadMessages::class)($user, $this->conversationId, $this->messagesCursor);
+        $chunk = $data['messages'];
 
         if ($chunk === []) {
             $this->messagesHasMore = false;
@@ -125,12 +121,12 @@ new class extends Component
             return;
         }
 
-        $this->islandPartialRows = array_reverse($chunk);
+        $this->islandPartialRows = $chunk;
         $this->isIslandPartialRender = true;
         $this->islandPartialIsPrepend = true;
 
-        $this->messagesCursor = $page->nextCursor()?->encode();
-        $this->messagesHasMore = $page->hasMorePages();
+        $this->messagesCursor = $data['next_cursor'];
+        $this->messagesHasMore = $data['has_more'];
     }
 
     public function dehydrate(): void
@@ -151,21 +147,15 @@ new class extends Component
 
     protected function loadInitialMessagesPage(): void
     {
-        $conversation = Conversation::query()->find($this->conversationId);
-        if (! $conversation instanceof Conversation) {
+        $user = auth()->user();
+        if (! $user instanceof User) {
             return;
         }
 
-        $query = $conversation->messages()->with(['messageable', 'attachments'])->reorder()->latest('sent_at')->latest('id');
-
-        $perPage = 50;
-
-        $page = $query->cursorPaginate($perPage);
-        $chunk = collect($page->items())->map(fn (Message $m) => $this->serializeMessage($m))->values()->all();
-        $chunk = $this->hydrateReadReceipts($chunk, $conversation);
-        $this->messagesViewport = array_reverse($chunk);
-        $this->messagesCursor = $page->nextCursor()?->encode();
-        $this->messagesHasMore = $page->hasMorePages();
+        $data = app(ListThreadMessages::class)($user, $this->conversationId, null);
+        $this->messagesViewport = $data['messages'];
+        $this->messagesCursor = $data['next_cursor'];
+        $this->messagesHasMore = $data['has_more'];
         $this->isIslandPartialRender = false;
         $this->islandPartialRows = [];
     }

@@ -24,9 +24,11 @@
     ],
     "require": {
         "php": "^8.4",
+        "binaryk/laravel-restify": "^10.4",
         "laravel/fortify": "^1.36",
         "laravel/framework": "^13.0",
         "laravel/reverb": "^1.10",
+        "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.25",
         "livewire/flux": "^2.13",

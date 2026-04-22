@@ -1,0 +1,35 @@
+<?php
+
+namespace Phunky\Restify\Actions;
+
+use Binaryk\LaravelRestify\Actions\Action;
+use Binaryk\LaravelRestify\Http\Requests\ActionRequest;
+use Phunky\Actions\Chat\LoadConversationMediaForViewer;
+use Phunky\Models\User;
+use Symfony\Component\HttpFoundation\Response;
+
+final class ConversationMediaAction extends Action
+{
+    public function rules(): array
+    {
+        return [
+            'conversation_id' => ['required', 'integer', 'min:1'],
+            'message_id' => ['nullable', 'integer', 'min:1'],
+        ];
+    }
+
+    public function handle(ActionRequest $request): Response
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            abort(401);
+        }
+
+        $conversationId = (int) $request->input('conversation_id');
+        $messageId = $request->filled('message_id') ? (int) $request->input('message_id') : null;
+
+        $items = app(LoadConversationMediaForViewer::class)($user, $conversationId, $messageId);
+
+        return response()->json(['items' => $items]);
+    }
+}

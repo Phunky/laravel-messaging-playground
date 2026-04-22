@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Phunky\LaravelMessaging\Contracts\Messageable;
 use Phunky\LaravelMessaging\Traits\HasMessaging;
 
@@ -17,8 +18,9 @@ use Phunky\LaravelMessaging\Traits\HasMessaging;
 class User extends Authenticatable implements Messageable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory;
+    use HasApiTokens;
 
+    use HasFactory;
     use HasMessaging;
     use Notifiable;
 

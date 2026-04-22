@@ -2,7 +2,9 @@
 
 namespace Phunky\Providers;
 
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Phunky\Events\MessagingInboxUpdated;
@@ -10,6 +12,12 @@ use Phunky\LaravelMessaging\Events\AllMessagesRead;
 use Phunky\LaravelMessaging\Events\MessageDeleted;
 use Phunky\LaravelMessaging\Events\MessageEdited;
 use Phunky\LaravelMessaging\Events\MessageSent;
+use Phunky\LaravelMessaging\Models\Conversation;
+use Phunky\LaravelMessaging\Models\Message;
+use Phunky\Models\User;
+use Phunky\Policies\ConversationPolicy;
+use Phunky\Policies\MessagePolicy;
+use Phunky\Policies\UserPolicy;
 use Phunky\View\Composers\ChatLayoutComposer;
 
 class AppServiceProvider extends ServiceProvider
@@ -27,6 +35,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(Conversation::class, ConversationPolicy::class);
+        Gate::policy(Message::class, MessagePolicy::class);
+
+        Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
         $this->registerMessagingInboxBroadcasts();
 
         View::composer(['layouts.app', 'layouts::app'], ChatLayoutComposer::class);

@@ -5,11 +5,11 @@ namespace Phunky\Livewire\Concerns;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Phunky\Actions\Chat\ToggleMessageReaction;
 use Phunky\LaravelMessaging\Models\Conversation;
 use Phunky\LaravelMessaging\Models\Message;
 use Phunky\LaravelMessaging\Models\Participant;
 use Phunky\LaravelMessaging\Services\MessagingService;
-use Phunky\LaravelMessagingReactions\Exceptions\ReactionException;
 use Phunky\LaravelMessagingReactions\Reaction;
 use Phunky\LaravelMessagingReactions\ReactionService;
 use Phunky\Models\User;
@@ -45,38 +45,17 @@ trait HandlesMessageReactions
             return;
         }
 
-        $conversation = Conversation::query()->find($this->conversationId);
-        if (! $conversation instanceof Conversation) {
-            return;
-        }
+        $result = app(ToggleMessageReaction::class)(
+            $user,
+            (int) $this->conversationId,
+            (int) $this->messageId,
+            $reaction,
+            $reactions,
+            $messaging,
+        );
 
-        if (! $user->conversations()->whereKey($this->conversationId)->exists()) {
-            return;
-        }
-
-        $message = Message::query()->find($this->messageId);
-        if (! $message instanceof Message || (int) $message->conversation_id !== (int) $this->conversationId) {
-            return;
-        }
-
-        try {
-            $participant = $messaging->findParticipant($conversation, $user);
-            $existing = $participant
-                ? Reaction::query()
-                    ->where('message_id', $message->getKey())
-                    ->where('participant_id', $participant->getKey())
-                    ->value('reaction')
-                : null;
-
-            if ($existing === $reaction) {
-                $reactions->removeReaction($message, $user);
-            } else {
-                $reactions->react($message, $user, $reaction);
-            }
-
+        if ($result['ok']) {
             $this->dispatch('conversation-updated');
-        } catch (ReactionException) {
-            // Playground: ignore empty reaction edge cases
         }
 
         if (property_exists($this, 'pickerOpen')) {

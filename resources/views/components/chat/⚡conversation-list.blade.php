@@ -1,20 +1,11 @@
 <?php
 
-use Phunky\Models\User;
-use Illuminate\Pagination\Cursor;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
+use Phunky\Actions\Chat\ListConversationInboxRows;
 use Phunky\Livewire\Concerns\TracksInboxWhispers;
-use Phunky\Support\ConversationListMessagePreview;
-use Phunky\LaravelMessagingReactions\Reaction;
+use Phunky\Models\User;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
-use Phunky\LaravelMessagingGroups\Group;
-use Phunky\LaravelMessaging\Facades\Messenger;
-use Phunky\LaravelMessaging\Models\Conversation;
-use Phunky\LaravelMessaging\Models\Message;
 
 new class extends Component
 {
@@ -102,147 +93,17 @@ new class extends Component
             return;
         }
 
-        $conversationTable = (new (config('messaging.models.conversation')))->getTable();
-        $messagesTable = messaging_table('messages');
-        $reactionsTable = messaging_table('reactions');
-
-        $lastActivitySql = <<<SQL
-            CASE
-                WHEN (SELECT MAX(r.updated_at) FROM {$reactionsTable} r
-                      INNER JOIN {$messagesTable} rm ON rm.id = r.message_id
-                      WHERE rm.conversation_id = {$conversationTable}.id)
-                     > (SELECT MAX(ms.sent_at) FROM {$messagesTable} ms
-                        WHERE ms.conversation_id = {$conversationTable}.id)
-                THEN (SELECT MAX(r2.updated_at) FROM {$reactionsTable} r2
-                      INNER JOIN {$messagesTable} rm2 ON rm2.id = r2.message_id
-                      WHERE rm2.conversation_id = {$conversationTable}.id)
-                ELSE (SELECT MAX(ms2.sent_at) FROM {$messagesTable} ms2
-                      WHERE ms2.conversation_id = {$conversationTable}.id)
-            END
-            SQL;
-
-        $query = Messenger::conversationsFor($user)
-            ->with(['participants.messageable', 'latestMessage.attachments'])
-            ->selectSub($lastActivitySql, 'last_activity_at')
-            ->reorder()
-            ->orderByDesc('last_activity_at')
-            ->orderByDesc($conversationTable.'.id');
-
-        $perPage = 20;
+        $cursor = $reset ? null : $this->nextCursor;
+        $page = app(ListConversationInboxRows::class)($user, $cursor);
 
         if ($reset) {
-            $this->rows = [];
-            $page = $query->cursorPaginate($perPage);
+            $this->rows = $page['rows'];
         } else {
-            $page = $query->cursorPaginate($perPage, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+            $this->rows = [...$this->rows, ...$page['rows']];
         }
 
-        $conversations = collect($page->items());
-        $ids = $conversations->pluck('id');
-
-        $groups = Group::query()->whereIn('conversation_id', $ids)->get()->keyBy('conversation_id');
-        $reactions = $this->loadLastReactions($ids);
-
-        foreach ($conversations as $conversation) {
-            if (! $conversation instanceof Conversation) {
-                continue;
-            }
-
-            $this->rows[] = $this->formatRow(
-                $user,
-                $conversation,
-                $groups->get($conversation->id),
-                $reactions->get($conversation->id),
-            );
-        }
-
-        $this->nextCursor = $page->nextCursor()?->encode();
-        $this->hasMore = $page->hasMorePages();
-    }
-
-    /**
-     * @param  Collection<int, mixed>  $ids
-     * @return Collection<int|string, Reaction>
-     */
-    protected function loadLastReactions(Collection $ids): Collection
-    {
-        if ($ids->isEmpty()) {
-            return collect();
-        }
-
-        $messagesTable = messaging_table('messages');
-        $reactionsTable = messaging_table('reactions');
-
-        return Reaction::query()
-            ->select("{$reactionsTable}.*")
-            ->join($messagesTable, "{$messagesTable}.id", '=', "{$reactionsTable}.message_id")
-            ->whereIn("{$messagesTable}.conversation_id", $ids->all())
-            ->with(['participant.messageable', 'message'])
-            ->orderByDesc("{$reactionsTable}.updated_at")
-            ->get()
-            ->unique(fn (Reaction $r) => $r->message->conversation_id)
-            ->keyBy(fn (Reaction $r) => $r->message->conversation_id);
-    }
-
-    protected function formatRow(
-        User $user,
-        Conversation $conversation,
-        ?Group $group,
-        ?Reaction $lastReaction = null,
-    ): array {
-        $title = 'Conversation';
-        $subtitle = '';
-        $isGroup = $group !== null;
-
-        $otherParticipantIds = $conversation->participants
-            ->map(fn ($p) => $p->messageable)
-            ->filter()
-            ->filter(fn ($m) => $m instanceof User && (string) $m->getKey() !== (string) $user->getKey())
-            ->map(fn (User $m) => (int) $m->getKey())
-            ->values()
-            ->all();
-
-        if ($isGroup) {
-            $title = $group->name;
-        } else {
-            $other = $conversation->participants
-                ->map(fn ($p) => $p->messageable)
-                ->filter()
-                ->first(fn ($m) => $m && (string) $m->getKey() !== (string) $user->getKey());
-
-            if ($other instanceof User) {
-                $title = $other->name;
-            }
-        }
-
-        $lastMessage = $conversation->latestMessage;
-
-        $reactionIsLatest = $lastReaction
-            && (! $lastMessage || $lastReaction->updated_at->greaterThan($lastMessage->sent_at));
-
-        if ($reactionIsLatest) {
-            $name = $lastReaction->participant->messageable?->name ?? 'Someone';
-            $body = Str::limit($lastReaction->message->body, 30);
-            $subtitle = "{$name} reacted {$lastReaction->reaction} to \"{$body}\"";
-        } elseif ($lastMessage instanceof Message) {
-            $subtitle = ConversationListMessagePreview::subtitle($lastMessage);
-        }
-
-        $activityAt = $conversation->last_activity_at
-            ? Carbon::parse($conversation->last_activity_at)
-            : ($lastMessage?->sent_at ?? $conversation->updated_at);
-
-        $updatedIso = $activityAt?->toIso8601String();
-
-        return [
-            'conversation_id' => (int) $conversation->id,
-            'title' => $title,
-            'subtitle' => $subtitle,
-            'is_group' => $isGroup,
-            'updated_at' => $updatedIso,
-            'unread_count' => (int) ($conversation->unread_count ?? 0),
-            'other_participant_ids' => $otherParticipantIds,
-        ];
+        $this->nextCursor = $page['next_cursor'];
+        $this->hasMore = $page['has_more'];
     }
 
     /**

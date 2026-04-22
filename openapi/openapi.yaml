@@ -1,0 +1,607 @@
+openapi: 3.0.3
+info:
+  title: laravel-messaging-playground API
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  description: |
+    Sanctum-issued bearer tokens and Laravel Restify chat endpoints used by this demo app.
+
+    **Restify repository** routes (`GET /api/restify/users`, `conversations`, `messages`, etc.) return
+    JSON:API-style payloads from Laravel Restify; this spec focuses on auth, chat **actions**, and
+    broadcasting auth. For Restify field lists and filters, see Restify docs and `app/Restify/`.
+  version: 1.0.0
+
+servers:
+  - url: '{origin}'
+    variables:
+      origin:
+        default: 'http://localhost:8000'
+        description: Your `APP_URL` (include port in local dev).
+
+tags:
+  - name: Auth
+    description: Sanctum personal access tokens
+  - name: Chat actions
+    description: Standalone Restify actions (custom JSON or multipart)
+  - name: Restify
+    description: JSON:API-style resources (overview)
+  - name: Broadcasting
+    description: Laravel Echo private channel authorization
+
+paths:
+  /api/auth/token:
+    post:
+      tags: [Auth]
+      summary: Create a personal access token
+      operationId: createApiToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '422':
+          description: Validation error or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LaravelValidationError'
+        '429':
+          description: Too many requests (throttle 10/min)
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current personal access token
+      operationId: revokeApiToken
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token revoked (or no-op if not a PAT)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/user:
+    get:
+      tags: [Auth]
+      summary: Current authenticated user
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Authenticated user model attributes as JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/restify/conversations/actions:
+    post:
+      tags: [Chat actions]
+      summary: Conversation repository standalone action
+      description: |
+        Set query parameter `action` to one of the enum values. Request body is JSON;
+        required fields depend on the action (server validates per handler).
+      operationId: postConversationAction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: action
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - conversation-inbox-action
+              - mark-conversation-read-action
+              - conversation-media-action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationActionBody'
+      responses:
+        '200':
+          description: Success (shape depends on `action`)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/InboxResponse'
+                  - $ref: '#/components/schemas/MarkReadResponse'
+                  - $ref: '#/components/schemas/MediaGalleryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LaravelValidationError'
+
+  /api/restify/messages/actions:
+    post:
+      tags: [Chat actions]
+      summary: Message repository standalone action
+      description: |
+        Set query parameter `action`. Use `application/json` for all actions **except**
+        `send-message-action`, which expects `multipart/form-data`.
+      operationId: postMessageAction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: action
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - thread-messages-action
+              - send-message-action
+              - toggle-reaction-action
+              - edit-message-action
+              - delete-message-action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageActionJsonBody'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendMessageMultipart'
+      responses:
+        '200':
+          description: Success (thread, reaction toggle, or edit)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ThreadMessagesResponse'
+                  - $ref: '#/components/schemas/OkResponse'
+                  - $ref: '#/components/schemas/MessageEnvelopeResponse'
+        '201':
+          description: Message created (`send-message-action`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageEnvelopeResponse'
+        '204':
+          description: Message deleted (`delete-message-action`)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: >
+            Validation or domain error; many handlers return a JSON object with a "message" string.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LaravelValidationError'
+                  - $ref: '#/components/schemas/SimpleMessageError'
+
+  /api/restify/users:
+    get:
+      tags: [Restify]
+      summary: List users (Restify)
+      description: JSON:API-style index; scoped to the authenticated user for this app.
+      operationId: restifyUsersIndex
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Restify JSON:API payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestifyJsonApiDocument'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/restify/conversations:
+    get:
+      tags: [Restify]
+      summary: List conversations (Restify)
+      operationId: restifyConversationsIndex
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Restify JSON:API payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestifyJsonApiDocument'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/restify/messages:
+    get:
+      tags: [Restify]
+      summary: List messages (Restify)
+      operationId: restifyMessagesIndex
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Restify JSON:API payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestifyJsonApiDocument'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /broadcasting/auth:
+    post:
+      tags: [Broadcasting]
+      summary: Authorize a private Echo channel
+      description: |
+        Standard Laravel broadcasting auth endpoint. Registered with `auth:sanctum`; send the same
+        `Authorization: Bearer` token as for API requests when using token-based Echo.
+      operationId: broadcastingAuth
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [socket_id, channel_name]
+              properties:
+                socket_id:
+                  type: string
+                channel_name:
+                  type: string
+                  description: e.g. `private-messaging.conversation.1`
+          application/json:
+            schema:
+              type: object
+              required: [socket_id, channel_name]
+              properties:
+                socket_id:
+                  type: string
+                channel_name:
+                  type: string
+                  description: e.g. `private-messaging.conversation.1`
+      responses:
+        '200':
+          description: Signed authorization payload for Pusher-compatible clients
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum personal access token
+      description: Plain text token from `POST /api/auth/token` (not hashed).
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+    Forbidden:
+      description: Authenticated but not allowed for this resource
+
+  schemas:
+    TokenRequest:
+      type: object
+      required: [email, password, device_name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        device_name:
+          type: string
+          maxLength: 255
+          description: Label stored on the token (e.g. device or app name).
+
+    TokenResponse:
+      type: object
+      required: [token, token_type, user]
+      properties:
+        token:
+          type: string
+          description: Plain text token (show once).
+        token_type:
+          type: string
+          example: Bearer
+        user:
+          type: object
+          required: [id, name, email]
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+
+    LaravelValidationError:
+      type: object
+      description: Typical Laravel validation error payload
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    SimpleMessageError:
+      type: object
+      properties:
+        message:
+          type: string
+
+    RestifyJsonApiDocument:
+      type: object
+      description: Laravel Restify JSON:API-style envelope (fields vary by resource).
+      additionalProperties: true
+
+    ConversationActionBody:
+      type: object
+      properties:
+        cursor:
+          type: string
+          nullable: true
+          description: Required for pagination only for `conversation-inbox-action`.
+        conversation_id:
+          type: integer
+          minimum: 1
+          description: For `mark-conversation-read-action` and `conversation-media-action`.
+        message_id:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Optional filter for `conversation-media-action`.
+
+    InboxResponse:
+      type: object
+      required: [rows, next_cursor, has_more]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/InboxRow'
+        next_cursor:
+          type: string
+          nullable: true
+        has_more:
+          type: boolean
+
+    InboxRow:
+      type: object
+      required:
+        - conversation_id
+        - title
+        - subtitle
+        - is_group
+        - updated_at
+        - unread_count
+        - other_participant_ids
+      properties:
+        conversation_id:
+          type: integer
+        title:
+          type: string
+        subtitle:
+          type: string
+        is_group:
+          type: boolean
+        updated_at:
+          type: string
+          nullable: true
+          description: ISO 8601 datetime
+        unread_count:
+          type: integer
+        other_participant_ids:
+          type: array
+          items:
+            type: integer
+
+    MarkReadResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    MediaGalleryResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaGalleryItem'
+
+    MediaGalleryItem:
+      type: object
+      required: [id, type, attachment_type, url, filename, message_id]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          description: Viewer display type (e.g. image / video slot)
+        attachment_type:
+          type: string
+          description: Stored attachment kind (e.g. image, video, video_note)
+        url:
+          type: string
+        mime_type:
+          type: string
+          nullable: true
+        filename:
+          type: string
+        message_id:
+          type: integer
+
+    MessageActionJsonBody:
+      type: object
+      properties:
+        conversation_id:
+          type: integer
+          minimum: 1
+        cursor:
+          type: string
+          nullable: true
+        message_id:
+          type: integer
+          minimum: 1
+        body:
+          type: string
+        reaction:
+          type: string
+          maxLength: 64
+
+    SendMessageMultipart:
+      type: object
+      required: [conversation_id, attachment_kind]
+      properties:
+        conversation_id:
+          type: integer
+          minimum: 1
+        body:
+          type: string
+          nullable: true
+        attachment_kind:
+          type: string
+          enum: [image, video, document, voice_note, video_note]
+          description: Keys from `config/messaging.php` → `media_attachment_types`
+        attachments:
+          type: array
+          items:
+            type: string
+            format: binary
+
+    ThreadMessagesResponse:
+      type: object
+      required: [messages, next_cursor, has_more]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        next_cursor:
+          type: string
+          nullable: true
+        has_more:
+          type: boolean
+
+    ChatMessage:
+      type: object
+      required:
+        - id
+        - body
+        - sent_at
+        - edited_at
+        - sender_id
+        - sender_name
+        - is_me
+        - attachments
+      properties:
+        id:
+          type: integer
+        body:
+          type: string
+        sent_at:
+          type: string
+          nullable: true
+          description: ISO 8601
+        edited_at:
+          type: string
+          nullable: true
+        sender_id:
+          type: string
+        sender_name:
+          type: string
+        is_me:
+          type: boolean
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageAttachment'
+        read_receipt_display:
+          type: string
+          enum: [hidden, sent, read]
+          description: Present after hydration for thread lists
+
+    MessageAttachment:
+      type: object
+      required: [id, type, url, filename]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        url:
+          type: string
+        filename:
+          type: string
+        mime_type:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+
+    MessageEnvelopeResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+security: []
