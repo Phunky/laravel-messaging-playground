@@ -35,12 +35,14 @@ return [
     |--------------------------------------------------------------------------
     | Broadcasting
     |--------------------------------------------------------------------------
-    | When enabled, core messaging events implement ShouldBroadcast on
-    | private channels: {channel_prefix}.conversation.{conversationId}
+    | When enabled, core messaging events broadcast on presence channels:
+    | {channel_prefix}.conversation.{conversationId}. Inbox updates broadcast
+    | to each participant's configured private user channel.
     */
     'broadcasting' => [
         'enabled' => (bool) env('MESSAGING_BROADCASTING_ENABLED', false),
         'channel_prefix' => env('MESSAGING_BROADCASTING_CHANNEL_PREFIX', 'messaging'),
+        'inbox_channel_pattern' => env('MESSAGING_INBOX_CHANNEL_PATTERN', 'App.Models.User.{id}'),
     ],
 
     /*

@@ -165,16 +165,15 @@ function clearWhisper(conversationId, kindDef, userKey) {
 
 /**
  * Pull the conversation + message ids out of a reaction/attachment broadcast
- * payload. Both packages serialize the `$message` model, so `conversation_id`
- * and `id` live there; the conversation_id on the wrapped reaction/attachment
- * row is used as a fallback in case a future version changes the shape.
+ * payload. New package versions expose top-level ids; nested serialized models
+ * remain as fallbacks for older payload shapes.
  */
 function extractConversationAndMessageIds(payload, wrappedKey, requireMessageId = true) {
     const message = payload?.message;
     const wrapped = wrappedKey ? payload?.[wrappedKey] : null;
 
-    const cid = message?.conversation_id ?? wrapped?.conversation_id ?? wrapped?.id;
-    const mid = message?.id ?? wrapped?.message_id;
+    const cid = payload?.conversation_id ?? message?.conversation_id ?? wrapped?.conversation_id ?? wrapped?.id;
+    const mid = payload?.message_id ?? message?.id ?? wrapped?.message_id;
 
     const conversationId = cid !== undefined && cid !== null ? Number(cid) : NaN;
     const messageId = mid !== undefined && mid !== null ? Number(mid) : null;

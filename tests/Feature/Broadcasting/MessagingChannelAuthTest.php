@@ -122,7 +122,7 @@ class MessagingChannelAuthTest extends TestCase
         $message = $messaging->sendMessage($conversation, $alice, 'hi');
 
         $this->assertSame(MessageSent::BROADCAST_NAME, (new MessageSent($message, $conversation))->broadcastAs());
-        $this->assertSame(MessageEdited::BROADCAST_NAME, (new MessageEdited($message, $conversation))->broadcastAs());
+        $this->assertSame(MessageEdited::BROADCAST_NAME, (new MessageEdited($message, 'hi'))->broadcastAs());
         $this->assertSame(MessageDeleted::BROADCAST_NAME, (new MessageDeleted($message, $conversation))->broadcastAs());
         $this->assertSame(AllMessagesRead::BROADCAST_NAME, (new AllMessagesRead($conversation, $alice, 0))->broadcastAs());
 
